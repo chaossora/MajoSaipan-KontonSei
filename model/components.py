@@ -48,6 +48,7 @@ class SpriteInfo:
     name: str
     offset_x: int = 0
     offset_y: int = 0
+    visible: bool = True
 
 
 @dataclass
@@ -298,3 +299,11 @@ class InputState:
     shoot_pressed: bool = False
     bomb: bool = False           # 当前帧是否按住
     bomb_pressed: bool = False   # 边缘检测：本帧是否按下
+
+
+@dataclass
+class PlayerRespawnState:
+    """玩家重生状态，用于闪烁效果控制"""
+    respawning: bool = False
+    blink_timer: float = 0.0
+    blink_interval: float = 0.1

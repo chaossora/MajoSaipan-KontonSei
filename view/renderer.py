@@ -38,6 +38,10 @@ class Renderer:
         if not (pos and sprite):
             return
 
+        # 检查是否可见（闪烁效果）
+        if not sprite.visible:
+            return
+
         image = self.assets.get_image(sprite.name)
         x = int(pos.x + sprite.offset_x)
         y = int(pos.y + sprite.offset_y)

@@ -26,6 +26,7 @@ from model.systems.render_hint_system import render_hint_system
 from model.systems.hud_data_system import hud_data_system
 from model.systems.stats_system import stats_system
 from model.systems.stage_system import stage_system
+from model.systems.death_effect import player_respawn_visual_system
 from model.stages.stage1 import setup_stage1
 from model.enemies import spawn_fairy_small, spawn_fairy_large, spawn_midboss
 
@@ -187,6 +188,9 @@ class GameController:
 
             # 5.5 敌人死亡系统
             enemy_death_system(self.state, dt)
+
+            # 5.6 玩家重生闪烁效果
+            player_respawn_visual_system(self.state, dt)
 
             # 6. 渲染前更新 HUD / 统计
             render_hint_system(self.state)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..game_state import GameState
 from ..components import PlayerLife, PlayerBomb, PlayerDamageState, InputState
+from .death_effect import apply_death_effect
 
 
 def player_damage_system(
@@ -58,7 +59,8 @@ def player_damage_system(
         if life.lives > 0:
             # 掉命后无敌一段时间
             dmg.invincible_timer = 2.0
-            # 是否清弹你可以自己在 BombSystem 里做一个"死亡后清弹"，这里不硬绑
+            # 执行死亡效果：清弹、清敌、重生
+            apply_death_effect(state, player)
         else:
             # 玩家命数用尽，标记游戏结束
             state.game_over = True

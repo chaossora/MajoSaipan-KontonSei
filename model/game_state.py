@@ -28,6 +28,7 @@ from .components import (
     PlayerLife,
     PlayerBomb,
     PlayerDamageState,
+    PlayerRespawnState,
     BombFieldTag,
     PlayerPower,
     PlayerScore,
@@ -234,6 +235,7 @@ def spawn_player(state: GameState, x: float, y: float, character_id: Optional[Ch
     player.add(PlayerLife(lives=initial_lives, max_lives=max_lives))
     player.add(PlayerBomb(bombs=initial_bombs, max_bombs=max_bombs))
     player.add(PlayerDamageState(deathbomb_window=deathbomb_window))
+    player.add(PlayerRespawnState())
 
     max_power = preset.max_power if preset else (cfg.max_power if cfg else 4.0)
     player.add(PlayerPower(power=0.0, max_power=max_power))
