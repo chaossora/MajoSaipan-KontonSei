@@ -78,6 +78,16 @@ def setup_stage1(state: GameState) -> None:
         description="Wave 4: spiral + diagonal",
     ))
 
+    # 5. t=30.0：Stage 1 Boss 登场
+    events.append(StageEvent(
+        time=30.0,
+        type=StageEventType.SPAWN_BOSS,
+        boss_id="stage1_boss",
+        start_x=center_x,
+        start_y=top_y,
+        description="Stage 1 Boss: 妖精大王",
+    ))
+
     events.sort(key=lambda e: e.time)
     stage.events = events
     stage.time = 0.0

@@ -4,7 +4,7 @@ import pygame
 
 from model.game_state import GameState
 from model.actor import Actor
-from model.components import Position, SpriteInfo, RenderHint, HudData, PlayerTag
+from model.components import Position, SpriteInfo, RenderHint, HudData, PlayerTag, BossHudData
 from model.game_config import CollectConfig
 
 
@@ -26,7 +26,10 @@ class Renderer:
         # PoC 线
         self._draw_poc_line(state)
 
-        # HUD
+        # Boss HUD
+        self._render_boss_hud(state)
+
+        # 玩家 HUD
         self._render_hud(state)
 
         pygame.display.flip()
@@ -119,3 +122,86 @@ class Renderer:
         x = int(pos.x) - int_radius
         y = int(pos.y) - int_radius
         self.screen.blit(overlay, (x, y))
+
+    def _render_boss_hud(self, state: GameState) -> None:
+        """渲染 Boss HUD：血条、计时器、符卡名、阶段星星。"""
+        # 查找场上的 Boss
+        boss_hud = None
+        for actor in state.actors:
+            hud = actor.get(BossHudData)
+            if hud and hud.visible:
+                boss_hud = hud
+                break
+
+        if not boss_hud:
+            return
+
+        screen_w = self.screen.get_width()
+
+        # ====== 血条（顶部中央） ======
+        bar_width = 280
+        bar_height = 8
+        bar_x = (screen_w - bar_width) // 2
+        bar_y = 24
+
+        # 背景
+        pygame.draw.rect(
+            self.screen,
+            (60, 60, 60),
+            (bar_x, bar_y, bar_width, bar_height),
+        )
+        # 血量填充
+        fill_width = int(bar_width * boss_hud.hp_ratio)
+        bar_color = (255, 100, 100) if not boss_hud.is_spell_card else (255, 180, 100)
+        pygame.draw.rect(
+            self.screen,
+            bar_color,
+            (bar_x, bar_y, fill_width, bar_height),
+        )
+        # 边框
+        pygame.draw.rect(
+            self.screen,
+            (200, 200, 200),
+            (bar_x, bar_y, bar_width, bar_height),
+            1,
+        )
+
+        # ====== 剩余阶段星星 ======
+        star_x = bar_x + bar_width + 8
+        for i in range(boss_hud.phases_remaining):
+            pygame.draw.circle(
+                self.screen,
+                (255, 255, 200),
+                (star_x + i * 14, bar_y + 4),
+                5,
+            )
+            pygame.draw.circle(
+                self.screen,
+                (255, 255, 255),
+                (star_x + i * 14, bar_y + 4),
+                5,
+                1,
+            )
+
+        # ====== 计时器（血条左侧） ======
+        timer_text = f"{int(boss_hud.timer_seconds):02d}"
+        timer_surf = self.font_small.render(timer_text, True, (255, 255, 255))
+        self.screen.blit(timer_surf, (bar_x - 28, bar_y - 2))
+
+        # ====== Boss 名称 ======
+        name_surf = self.font_small.render(boss_hud.boss_name, True, (255, 255, 255))
+        self.screen.blit(name_surf, (bar_x, bar_y - 16))
+
+        # ====== 符卡名（右上角） ======
+        if boss_hud.is_spell_card and boss_hud.spell_name:
+            # 符卡名颜色：有奖励资格为亮色，无则为暗色
+            spell_color = (255, 200, 200) if boss_hud.spell_bonus_available else (150, 150, 150)
+            spell_surf = self.font_small.render(boss_hud.spell_name, True, spell_color)
+            spell_x = screen_w - spell_surf.get_width() - 10
+            self.screen.blit(spell_surf, (spell_x, 50))
+
+            # 显示符卡奖励分数
+            if boss_hud.spell_bonus_available:
+                bonus_text = f"Bonus: {boss_hud.spell_bonus}"
+                bonus_surf = self.font_small.render(bonus_text, True, (200, 200, 150))
+                self.screen.blit(bonus_surf, (spell_x, 68))

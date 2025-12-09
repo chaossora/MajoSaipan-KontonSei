@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 # 处理函数签名: (state, ev, spawner) -> None
 wave_pattern_registry: Registry[WavePattern] = Registry("wave_pattern")
 
+# Boss 注册表
+# 处理函数签名: (state, x, y) -> Actor
+boss_registry: Registry[str] = Registry("boss")
+
 
 def stage_system(state: GameState, dt: float) -> None:
     """
@@ -46,11 +50,16 @@ def _execute_stage_event(state: GameState, ev: StageEvent) -> None:
     """执行关卡事件。"""
     if ev.type == StageEventType.SPAWN_WAVE:
         _spawn_wave(state, ev)
-    # 以后可以在这里添加 PLAY_BGM / SPAWN_BOSS 等分支
+    elif ev.type == StageEventType.SPAWN_BOSS:
+        _spawn_boss(state, ev)
 
 
 def _spawn_wave(state: GameState, ev: StageEvent) -> None:
     """生成一波敌人。"""
+    # 安全检查：SPAWN_WAVE 必须有 enemy_kind 和 pattern
+    if ev.enemy_kind is None or ev.pattern is None:
+        return
+
     spawner = enemy_registry.get(ev.enemy_kind)
     if not spawner:
         return
@@ -59,6 +68,19 @@ def _spawn_wave(state: GameState, ev: StageEvent) -> None:
     handler = wave_pattern_registry.get(ev.pattern)
     if handler:
         handler(state, ev, spawner)
+
+
+def _spawn_boss(state: GameState, ev: StageEvent) -> None:
+    """
+    生成 Boss。
+    使用 boss_registry 查找对应的 Boss 工厂函数。
+    """
+    spawner = boss_registry.get(ev.boss_id)
+    if not spawner:
+        return
+
+    # 在指定位置生成 Boss
+    spawner(state, ev.start_x, ev.start_y)
 
 
 @wave_pattern_registry.register(WavePattern.LINE)

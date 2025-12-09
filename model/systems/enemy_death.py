@@ -10,6 +10,7 @@ from ..components import (
     EnemyJustDied,
     EnemyDropConfig,
     ItemType,
+    EnemyKind, EnemyKindTag, BossState,
 )
 
 
@@ -18,7 +19,7 @@ def enemy_death_system(state: GameState, dt: float) -> None:
     敌人死亡统一处理系统：
     - 查找所有有 EnemyTag + EnemyJustDied 的实体
     - 执行：
-        * 掉落道具（根据 EnemyDropConfig）
+        * 掉落道具（根据 EnemyDropConfig 或 BossState）
         * 加分（以后可以加）
         * 清理相关状态
         * 从 GameState 移除敌人实体
@@ -35,11 +36,23 @@ def enemy_death_system(state: GameState, dt: float) -> None:
             continue
 
         pos = actor.get(Position)
-        drop = actor.get(EnemyDropConfig)
+
+        # 检查是否为 Boss
+        kind_tag = actor.get(EnemyKindTag)
+        is_boss = kind_tag and kind_tag.kind == EnemyKind.BOSS
 
         # 1) 掉落道具
-        if pos and drop:
-            _spawn_drops_for_enemy(state, pos.x, pos.y, drop)
+        if pos:
+            if is_boss:
+                # Boss 使用 BossState 的掉落配置
+                boss_state = actor.get(BossState)
+                if boss_state:
+                    _spawn_boss_drops(state, pos.x, pos.y, boss_state)
+            else:
+                # 普通敌人使用 EnemyDropConfig
+                drop = actor.get(EnemyDropConfig)
+                if drop:
+                    _spawn_drops_for_enemy(state, pos.x, pos.y, drop)
 
         # 2) （以后：给玩家加分、连击、统计这种）
 
@@ -83,5 +96,67 @@ def _spawn_drops_for_enemy(
             x=cx + offset_x,
             y=cy + offset_y,
             item_type=ItemType.POINT,
+            value=1,
+        )
+
+
+def _spawn_boss_drops(
+    state: GameState,
+    cx: float,
+    cy: float,
+    boss_state: BossState,
+) -> None:
+    """
+    Boss 击破时的掉落逻辑：
+    - Power、Point 大量掉落
+    - 可能掉落 Life、Bomb
+    """
+    r = 48.0  # Boss 掉落散布半径较大
+
+    # 掉 Power
+    for _ in range(boss_state.drop_power):
+        offset_x = random.uniform(-r, r)
+        offset_y = random.uniform(-r, r)
+        spawn_item(
+            state,
+            x=cx + offset_x,
+            y=cy + offset_y,
+            item_type=ItemType.POWER,
+            value=1,
+        )
+
+    # 掉 Point
+    for _ in range(boss_state.drop_point):
+        offset_x = random.uniform(-r, r)
+        offset_y = random.uniform(-r, r)
+        spawn_item(
+            state,
+            x=cx + offset_x,
+            y=cy + offset_y,
+            item_type=ItemType.POINT,
+            value=1,
+        )
+
+    # 掉 Life（残机）
+    for _ in range(boss_state.drop_life):
+        offset_x = random.uniform(-r * 0.5, r * 0.5)
+        offset_y = random.uniform(-r * 0.5, r * 0.5)
+        spawn_item(
+            state,
+            x=cx + offset_x,
+            y=cy + offset_y,
+            item_type=ItemType.LIFE,
+            value=1,
+        )
+
+    # 掉 Bomb
+    for _ in range(boss_state.drop_bomb):
+        offset_x = random.uniform(-r * 0.5, r * 0.5)
+        offset_y = random.uniform(-r * 0.5, r * 0.5)
+        spawn_item(
+            state,
+            x=cx + offset_x,
+            y=cy + offset_y,
+            item_type=ItemType.BOMB,
             value=1,
         )

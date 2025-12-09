@@ -53,6 +53,28 @@ class Assets:
         pygame.draw.circle(midboss, (255, 255, 255), (32, 24), 6)
         self.images["enemy_midboss"] = midboss
 
+        # boss_stage1 (Stage 1 Boss)
+        boss1 = pygame.Surface((64, 64), pygame.SRCALPHA)
+        pygame.draw.circle(boss1, (180, 80, 200), (32, 32), 28)  # 紫色主体
+        pygame.draw.circle(boss1, (220, 160, 240), (32, 26), 16)  # 亮色上半
+        pygame.draw.circle(boss1, (255, 200, 255), (32, 22), 8)   # 高光
+        # 装饰翅膀
+        pygame.draw.ellipse(boss1, (200, 120, 220, 180), (4, 20, 16, 24))
+        pygame.draw.ellipse(boss1, (200, 120, 220, 180), (44, 20, 16, 24))
+        self.images["boss_stage1"] = boss1
+
+        # item_life (残机掉落)
+        life_img = pygame.Surface((16, 16), pygame.SRCALPHA)
+        pygame.draw.circle(life_img, (255, 100, 150), (8, 8), 7)
+        pygame.draw.circle(life_img, (255, 200, 220), (8, 6), 4)
+        self.images["item_life"] = life_img
+
+        # item_bomb (炸弹掉落)
+        bomb_item = pygame.Surface((16, 16), pygame.SRCALPHA)
+        pygame.draw.circle(bomb_item, (100, 200, 100), (8, 8), 7)
+        pygame.draw.circle(bomb_item, (180, 255, 180), (8, 6), 4)
+        self.images["item_bomb"] = bomb_item
+
         # player_bullet_basic
         pb = pygame.Surface((8, 16), pygame.SRCALPHA)
         pygame.draw.rect(pb, (255, 255, 0), (2, 0, 4, 16))

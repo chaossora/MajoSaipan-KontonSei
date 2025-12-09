@@ -27,8 +27,14 @@ from model.systems.hud_data_system import hud_data_system
 from model.systems.stats_system import stats_system
 from model.systems.stage_system import stage_system
 from model.systems.death_effect import player_respawn_visual_system
+from model.systems.boss_phase_system import boss_phase_system
+from model.systems.boss_movement_system import boss_movement_system
+from model.systems.boss_hud_system import boss_hud_system
 from model.stages.stage1 import setup_stage1
 from model.enemies import spawn_fairy_small, spawn_fairy_large, spawn_midboss
+
+# 导入 bosses 模块以注册 Boss 工厂函数
+import model.bosses
 
 from view.assets import Assets
 from view.renderer import Renderer
@@ -164,6 +170,9 @@ class GameController:
             item_autocollect_system(self.state, dt)
             stage_system(self.state, dt)
 
+            # Boss 移动（在普通移动前）
+            boss_movement_system(self.state, dt)
+
             # 2. 所有物体移动
             movement_system(self.state, dt)
 
@@ -176,6 +185,10 @@ class GameController:
             # 3. 碰撞检测 + 事件
             collision_detection_system(self.state)
             collision_damage_system(self.state, dt)
+
+            # Boss 阶段系统（检测 HP 耗尽或超时，处理阶段转换）
+            boss_phase_system(self.state, dt)
+
             bomb_hit_system(self.state, dt)
             graze_system(self.state, dt)
             item_pickup_system(self.state, dt)
@@ -194,6 +207,7 @@ class GameController:
 
             # 6. 渲染前更新 HUD / 统计
             render_hint_system(self.state)
+            boss_hud_system(self.state, dt)  # Boss HUD 数据聚合
             hud_data_system(self.state)
             stats_system(self.state)
 

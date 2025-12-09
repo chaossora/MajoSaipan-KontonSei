@@ -8,6 +8,7 @@ from ..components import (
     Health, Bullet,
     PlayerDamageState,
     EnemyJustDied,
+    EnemyKind, EnemyKindTag, SpellCardState, BossState,
 )
 from ..collision_events import (
     CollisionEvents,
@@ -43,10 +44,37 @@ def _apply_player_bullet_hits_enemy(ev: PlayerBulletHitEnemy,
     if not (bullet_data and health):
         return
 
-    health.hp -= bullet_data.damage
+    # 检查是否为 Boss
+    kind_tag = enemy.get(EnemyKindTag)
+    is_boss = kind_tag and kind_tag.kind == EnemyKind.BOSS
+
+    # Boss 符卡期间的特殊处理
+    spell_state = enemy.get(SpellCardState)
+    if spell_state:
+        # 生存符卡：Boss 无敌，不扣血
+        if spell_state.invulnerable:
+            to_remove.add(bullet)
+            return
+        # 应用伤害倍率（符卡期间通常 < 1，减少伤害）
+        # 使用 max(1, ...) 保证最小 1 点伤害，避免 int(1 * 0.8) = 0 的问题
+        damage = max(1, int(bullet_data.damage * spell_state.damage_multiplier))
+    else:
+        damage = bullet_data.damage
+
+    # 阶段转换期间不受伤害
+    boss_state = enemy.get(BossState)
+    if boss_state and boss_state.phase_transitioning:
+        to_remove.add(bullet)
+        return
+
+    health.hp -= damage
     to_remove.add(bullet)
 
     if health.hp <= 0:
+        # Boss 死亡由 boss_phase_system 处理，这里不添加 EnemyJustDied
+        if is_boss:
+            return
+
         death = enemy.get(EnemyJustDied)
         if not death:
             enemy.add(EnemyJustDied(by_player_bullet=True))

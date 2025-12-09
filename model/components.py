@@ -127,6 +127,7 @@ class BombConfigData:
     beam_width: float = 64.0
     beam_length: float = 600.0
     effect_sprite: str = "bomb_field"
+    damage: int = 9999  # 每帧伤害（对普通敌人相当于秒杀）
 
 
 # ====== 敌人射击组件 ======
@@ -307,3 +308,114 @@ class PlayerRespawnState:
     respawning: bool = False
     blink_timer: float = 0.0
     blink_interval: float = 0.1
+
+
+# ====== Boss 组件 ======
+
+class PhaseType(Enum):
+    """Boss 阶段类型"""
+    NON_SPELL = auto()    # 非符卡（通常弹幕）
+    SPELL_CARD = auto()   # 符卡（有名称、奖励）
+    SURVIVAL = auto()     # 生存符卡（Boss 无敌，玩家需存活）
+
+
+@dataclass
+class BossPhase:
+    """
+    单个 Boss 阶段定义（纯数据）。
+    存储在 BossState.phases 列表中。
+    """
+    phase_type: PhaseType
+    hp: int                                # 该阶段血量
+    duration: float                        # 该阶段时限（秒）
+    spell_name: str = ""                   # 符卡名（非符为空）
+    spell_bonus: int = 0                   # 符卡奖励分数
+    damage_multiplier: float = 1.0         # 伤害倍率（<1 表示减伤）
+    pattern: object = None                 # BulletPatternConfig（延迟绑定）
+
+
+@dataclass
+class BossState:
+    """
+    Boss 核心状态组件（运行时状态）：
+    - 存储所有阶段定义
+    - 跟踪当前阶段和计时器
+    - HP 由现有 Health 组件管理
+    """
+    boss_name: str
+    phases: List[BossPhase] = field(default_factory=list)
+    current_phase_index: int = 0
+    phase_timer: float = 0.0               # 当前阶段剩余时间
+    phase_transitioning: bool = False      # 正在阶段转换
+    transition_timer: float = 0.0
+
+    # 掉落配置
+    drop_power: int = 16
+    drop_point: int = 24
+    drop_life: int = 0
+    drop_bomb: int = 0
+
+    # Bomb 抗性配置（东方风格）
+    bomb_damage_cap: int = 1              # 每帧最大 Bomb 伤害
+    bomb_spell_immune: bool = False        # 符卡期间是否完全免疫 Bomb
+
+
+@dataclass
+class SpellCardState:
+    """
+    符卡状态组件（仅在符卡阶段添加）。
+    用于跟踪符卡奖励资格和伤害倍率。
+    """
+    spell_name: str = ""
+    spell_bonus_available: bool = True     # 未被击中、未 Bomb 则 True
+    spell_bonus_value: int = 0
+    damage_multiplier: float = 1.0
+    invulnerable: bool = False             # 生存符卡时 True
+
+
+@dataclass
+class BossMovementState:
+    """
+    Boss 移动控制组件。
+    实现东方风格的间隔滑动移动（状态机模式）。
+    """
+    # 活动范围
+    y_min: float = 50.0                    # Y 轴活动上限
+    y_max: float = 180.0                   # Y 轴活动下限
+
+    # 状态机
+    is_moving: bool = False                # 是否正在滑动
+    move_timer: float = 1.0                # 下次移动倒计时（初始 1 秒后开始移动）
+    move_progress: float = 0.0             # 当前移动进度 (0-1)
+    move_duration: float = 0.6             # 单次移动持续时间
+
+    # 移动目标（运行时状态）
+    start_x: float = 0.0
+    start_y: float = 0.0
+    target_x: float = 0.0
+    target_y: float = 0.0
+
+    # 配置参数
+    idle_time_min: float = 1.5             # 静止等待时间下限
+    idle_time_max: float = 3.0             # 静止等待时间上限
+    move_duration_min: float = 0.4         # 滑动时间下限
+    move_duration_max: float = 0.8         # 滑动时间上限
+    target_offset_range: float = 50.0      # X 目标随机偏移范围
+    y_variation: float = 30.0              # Y 方向波动范围
+
+
+@dataclass
+class BossHudData:
+    """
+    Boss HUD 聚合数据（供渲染器使用）。
+    由 boss_hud_system 每帧更新。
+    """
+    boss_name: str = ""
+    hp_ratio: float = 1.0                  # 当前血量百分比
+    phases_remaining: int = 0              # 剩余阶段数（星星显示）
+    is_spell_card: bool = False
+    spell_name: str = ""
+    spell_bonus: int = 0
+    spell_bonus_available: bool = True
+    timer_seconds: float = 60.0
+    visible: bool = True

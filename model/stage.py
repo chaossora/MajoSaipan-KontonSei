@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List
+from typing import List, Optional
 
 from .components import EnemyKind
 
@@ -11,9 +11,11 @@ from .components import EnemyKind
 class StageEventType(Enum):
     """
     关卡事件大类：
-    先只用 SPAWN_WAVE，以后可以加 PLAY_BGM / SPAWN_BOSS 等。
+    - SPAWN_WAVE: 生成敌人波次
+    - SPAWN_BOSS: 生成 Boss
     """
     SPAWN_WAVE = auto()
+    SPAWN_BOSS = auto()
 
 
 class WavePattern(Enum):
@@ -72,13 +74,13 @@ class StageEvent:
     time: float
     type: StageEventType
 
-    enemy_kind: EnemyKind
-    pattern: WavePattern
+    # SPAWN_WAVE 专用字段（对于 SPAWN_BOSS 可选）
+    enemy_kind: Optional[EnemyKind] = None
+    pattern: Optional[WavePattern] = None
+    count: int = 0
 
-    count: int
-
-    start_x: float
-    start_y: float
+    start_x: float = 0.0
+    start_y: float = 0.0
 
     spacing_x: float = 0.0
     spacing_y: float = 0.0
@@ -90,6 +92,9 @@ class StageEvent:
     angle_step_deg: float = 0.0
 
     path_name: str = ""   # 这波敌人使用哪条移动路径（可选）
+
+    # SPAWN_BOSS 专用字段
+    boss_id: str = ""     # Boss 工厂函数名（用于 boss_registry）
 
     description: str = ""
 
