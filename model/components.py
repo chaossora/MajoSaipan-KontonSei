@@ -163,6 +163,19 @@ class PlayerGraze:
 
 
 @dataclass
+class GrazeEnergy:
+    """
+    擦弹能量状态组件（附加到玩家 Actor）。
+    追踪当前能量值和增强状态。
+    """
+    energy: float = 0.0           # 当前能量值
+    max_energy: float = 100.0     # 最大能量值
+    is_enhanced: bool = False     # 是否处于增强状态
+    decay_timer: float = 0.0      # 衰减延迟计时器（停止擦弹后多久开始衰减）
+    last_graze_count: int = 0     # 上一帧的擦弹总数（用于计算增量）
+
+
+@dataclass
 class PlayerLife:
     lives: int
     max_lives: int
@@ -298,6 +311,10 @@ class HudData:
     power: float = 0.0
     max_power: float = 0.0
     graze_count: int = 0
+    # 擦弹能量系统
+    graze_energy: float = 0.0
+    max_graze_energy: float = 100.0
+    is_enhanced: bool = False
 
 
 # ====== 输入组件 ======

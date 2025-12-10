@@ -8,6 +8,7 @@ from ..components import (
     PlayerPower,
     PlayerScore,
     PlayerGraze,
+    GrazeEnergy,
 )
 
 
@@ -30,6 +31,7 @@ def hud_data_system(state: GameState) -> None:
         power = player.get(PlayerPower)
         score = player.get(PlayerScore)
         graze = player.get(PlayerGraze)
+        graze_energy = player.get(GrazeEnergy)
 
         if life:
             hud.lives = life.lives
@@ -44,3 +46,7 @@ def hud_data_system(state: GameState) -> None:
             hud.score = score.score
         if graze:
             hud.graze_count = graze.count
+        if graze_energy:
+            hud.graze_energy = graze_energy.energy
+            hud.max_graze_energy = graze_energy.max_energy
+            hud.is_enhanced = graze_energy.is_enhanced

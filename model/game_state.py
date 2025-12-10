@@ -33,6 +33,7 @@ from .components import (
     PlayerPower,
     PlayerScore,
     PlayerGraze,
+    GrazeEnergy,
     Gravity,
     ItemType,
     Item,
@@ -50,6 +51,7 @@ from .components import (
 from .game_config import (
     CollectConfig,
     GrazeConfig,
+    GrazeEnergyConfig,
     PlayerConfig,
     BombConfig,
     BoundaryConfig,
@@ -62,7 +64,7 @@ from .collision_events import CollisionEvents
 from .stage import StageState
 from .movement_path import PathLibrary, create_default_path_library
 from .bullet_patterns import BulletPatternConfig, BulletPatternKind
-from .character import CharacterId, get_character_preset
+from .character import CharacterId, get_character_preset, EnhancedShotConfig
 from .shot_handlers import ShotKind
 from .bomb_handlers import BombType
 
@@ -120,6 +122,7 @@ class GameState:
         defaults = [
             CollectConfig(),
             GrazeConfig(),
+            GrazeEnergyConfig(),
             PlayerConfig(),
             BombConfig(),
             BoundaryConfig(),
@@ -243,6 +246,23 @@ def spawn_player(state: GameState, x: float, y: float, character_id: Optional[Ch
     player.add(PlayerPower(power=0.0, max_power=max_power))
     player.add(PlayerScore(score=0))
     player.add(PlayerGraze())
+
+    # 擦弹能量系统
+    energy_cfg: GrazeEnergyConfig = state.get_resource(GrazeEnergyConfig) or GrazeEnergyConfig()  # type: ignore
+    player.add(GrazeEnergy(
+        energy=0.0,
+        max_energy=energy_cfg.max_energy,
+        is_enhanced=False,
+        decay_timer=0.0,
+        last_graze_count=0,
+    ))
+
+    # 增强射击配置（从角色预设）
+    if preset and preset.enhanced_shot:
+        player.add(copy.deepcopy(preset.enhanced_shot))
+    else:
+        # 默认增强配置
+        player.add(EnhancedShotConfig())
 
     # 输入组件
     player.add(InputState())

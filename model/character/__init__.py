@@ -7,7 +7,7 @@ from __future__ import annotations
 - get_character_preset / get_all_characters: 查询接口
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional, List
 import copy
@@ -22,6 +22,21 @@ class CharacterId(Enum):
     """角色 ID 枚举"""
     REIMU_A = auto()
     MARISA_A = auto()
+
+
+@dataclass
+class EnhancedShotConfig:
+    """
+    增强射击配置（用于擦弹能量系统）。
+    定义增强状态下的射击参数。
+    """
+    damage_multiplier: float = 1.5           # 主机伤害倍率
+    bullet_speed_multiplier: float = 1.2     # 弹速倍率
+    # 增强时的射击角度（比普通更密集或更宽）
+    angles_spread_enhanced: List[float] = field(default_factory=lambda: [-25.0, -15.0, -5.0, 0.0, 5.0, 15.0, 25.0])
+    angles_focus_enhanced: List[float] = field(default_factory=lambda: [-4.0, -2.0, 0.0, 2.0, 4.0])
+    # 子机增强
+    option_damage_multiplier: float = 1.5    # 子机伤害倍率
 
 
 @dataclass
@@ -53,6 +68,9 @@ class CharacterPreset:
     sprite_name: str = "player_default"     # 精灵图名称
     sprite_offset_x: int = -16              # 精灵图 X 偏移
     sprite_offset_y: int = -16              # 精灵图 Y 偏移
+
+    # 增强射击��置（擦弹能量系统）
+    enhanced_shot: Optional[EnhancedShotConfig] = None
 
 
 character_registry: Registry[CharacterId] = Registry("character")
@@ -123,6 +141,14 @@ def _reimu_a() -> CharacterPreset:
         sprite_name="player_reimu",
         sprite_offset_x=-16,
         sprite_offset_y=-16,
+        # 增强射击配置：广角增强
+        enhanced_shot=EnhancedShotConfig(
+            damage_multiplier=1.5,
+            bullet_speed_multiplier=1.2,
+            angles_spread_enhanced=[-30.0, -20.0, -10.0, 0.0, 10.0, 20.0, 30.0],  # 7发
+            angles_focus_enhanced=[-6.0, -3.0, 0.0, 3.0, 6.0],                     # 5发
+            option_damage_multiplier=1.5,
+        ),
     )
 
 
@@ -170,12 +196,21 @@ def _marisa_a() -> CharacterPreset:
         sprite_name="player_marisa",
         sprite_offset_x=-16,
         sprite_offset_y=-16,
+        # 增强射击配置：高火力增强
+        enhanced_shot=EnhancedShotConfig(
+            damage_multiplier=2.0,               # 魔理沙伤害增强更高
+            bullet_speed_multiplier=1.3,
+            angles_spread_enhanced=[-12.0, -6.0, 0.0, 6.0, 12.0],   # 5发窄角
+            angles_focus_enhanced=[-3.0, -1.5, 0.0, 1.5, 3.0],      # 5发超窄
+            option_damage_multiplier=1.8,        # 魔理沙子机增强更高
+        ),
     )
 
 
 __all__ = [
     "CharacterId",
     "CharacterPreset",
+    "EnhancedShotConfig",
     "character_registry",
     "get_character_preset",
     "get_all_characters",

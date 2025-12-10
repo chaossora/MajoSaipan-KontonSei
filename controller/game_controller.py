@@ -14,6 +14,7 @@ from model.systems.collision import collision_detection_system
 from model.systems.collision_damage_system import collision_damage_system
 from model.systems.bomb_hit_system import bomb_hit_system
 from model.systems.graze_system import graze_system
+from model.systems.graze_energy_system import graze_energy_system
 from model.systems.item_pickup import item_pickup_system
 from model.systems.player_damage import player_damage_system
 from model.systems.bomb_system import bomb_system
@@ -193,6 +194,7 @@ class GameController:
 
             bomb_hit_system(self.state, dt)
             graze_system(self.state, dt)
+            graze_energy_system(self.state, dt)  # 擦弹能量系统：累积能量、触发增强
             item_pickup_system(self.state, dt)
 
             # 4. 玩家受伤系统：处理死亡窗口

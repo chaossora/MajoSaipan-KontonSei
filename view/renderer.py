@@ -104,6 +104,66 @@ class Renderer:
             self.screen.blit(surf, (x, y))
             y += line_h
 
+        # 绘制擦弹能量条
+        self._render_graze_energy_bar(state, hud, y)
+
+    def _render_graze_energy_bar(self, state: GameState, hud: HudData, start_y: int) -> None:
+        """绘制擦弹能量条。"""
+        bar_x = 10
+        bar_y = start_y + 5
+        bar_width = 120
+        bar_height = 10
+
+        # 背景
+        pygame.draw.rect(
+            self.screen,
+            (40, 40, 40),
+            (bar_x, bar_y, bar_width, bar_height),
+        )
+
+        # 能量填充
+        if hud.max_graze_energy > 0:
+            fill_ratio = hud.graze_energy / hud.max_graze_energy
+            fill_width = int(bar_width * fill_ratio)
+
+            # 颜色：普通蓝色，增强状态时金色闪烁
+            if hud.is_enhanced:
+                # 金色闪烁效果
+                blink = int(state.time * 8) % 2
+                bar_color = (255, 220, 80) if blink else (255, 180, 50)
+            else:
+                # 蓝色渐变（能量越高越亮）
+                intensity = int(100 + 155 * fill_ratio)
+                bar_color = (80, intensity, 255)
+
+            if fill_width > 0:
+                pygame.draw.rect(
+                    self.screen,
+                    bar_color,
+                    (bar_x, bar_y, fill_width, bar_height),
+                )
+
+        # 边框
+        border_color = (255, 200, 100) if hud.is_enhanced else (150, 150, 150)
+        pygame.draw.rect(
+            self.screen,
+            border_color,
+            (bar_x, bar_y, bar_width, bar_height),
+            1,
+        )
+
+        # 标签
+        if hud.is_enhanced:
+            label = "ENHANCED!"
+            label_color = (255, 220, 100)
+        else:
+            percent = int(100 * hud.graze_energy / hud.max_graze_energy) if hud.max_graze_energy > 0 else 0
+            label = f"ENERGY {percent}%"
+            label_color = (200, 200, 200)
+
+        label_surf = self.font_small.render(label, True, label_color)
+        self.screen.blit(label_surf, (bar_x + bar_width + 8, bar_y - 1))
+
     def _draw_graze_field(self, pos: Position, radius: float) -> None:
         """绘制擦弹半径覆盖层。"""
         int_radius = int(radius)

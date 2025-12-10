@@ -10,6 +10,7 @@ from .components import ShotConfig, ShotOriginOffset, FocusState
 
 if TYPE_CHECKING:
     from .game_state import GameState
+    from .character import EnhancedShotConfig
 
 
 class ShotKind(Enum):
@@ -34,6 +35,45 @@ def dispatch_player_shot(
         handler(state, shot_cfg, pos, shot_origin, focus_state)
     else:
         _shot_spread(state, shot_cfg, pos, shot_origin, focus_state)
+
+
+def dispatch_enhanced_player_shot(
+    state: GameState,
+    shot_cfg: ShotConfig,
+    enhanced_cfg: "EnhancedShotConfig",
+    pos,
+    shot_origin: Optional[ShotOriginOffset],
+    focus_state: FocusState,
+) -> None:
+    """
+    分发增强版玩家射击。
+    使用 EnhancedShotConfig 的角度和伤害倍率。
+    """
+    from .game_state import spawn_player_bullet
+
+    # 选择增强角度
+    angles = (
+        enhanced_cfg.angles_focus_enhanced
+        if focus_state.is_focusing
+        else enhanced_cfg.angles_spread_enhanced
+    )
+
+    offset = shot_origin.bullet_spawn_offset_y if shot_origin else 16.0
+    y = pos.y - offset
+
+    # 计算增强伤害和弹速
+    enhanced_damage = int(shot_cfg.damage * enhanced_cfg.damage_multiplier)
+    enhanced_speed = shot_cfg.bullet_speed * enhanced_cfg.bullet_speed_multiplier
+
+    for ang in angles:
+        spawn_player_bullet(
+            state,
+            x=pos.x,
+            y=y,
+            damage=enhanced_damage,
+            speed=enhanced_speed,
+            angle_deg=ang,
+        )
 
 
 @shot_registry.register(ShotKind.SPREAD)

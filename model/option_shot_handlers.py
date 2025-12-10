@@ -1,10 +1,12 @@
 """
 子机射击处理器注册表。
 定义不同的子机射击行为，支持 Focus 状态依赖。
+支持增强状态的伤害倍率。
 """
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Tuple, Optional, Callable
 
@@ -34,6 +36,8 @@ def dispatch_option_shot(
     option_cfg: "OptionConfig",
     shot_cfg: "ShotConfig",
     is_focusing: bool,
+    is_enhanced: bool = False,
+    damage_multiplier: float = 1.0,
 ) -> None:
     """
     分发子机射击到已注册的处理器。
@@ -45,7 +49,13 @@ def dispatch_option_shot(
         option_cfg: 子机配置
         shot_cfg: 玩家射击配置（用于伤害、速度）
         is_focusing: 是否处于 Focus 状态
+        is_enhanced: 是否处于增强状态
+        damage_multiplier: 伤害倍率（增强时 > 1.0）
     """
+    # 应用增强伤害倍率
+    if damage_multiplier != 1.0:
+        option_cfg = replace(option_cfg, damage_ratio=option_cfg.damage_ratio * damage_multiplier)
+
     handler: Optional[Callable] = option_shot_registry.get(option_cfg.option_shot_kind)
     if handler:
         handler(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)

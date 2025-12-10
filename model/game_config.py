@@ -40,6 +40,23 @@ class GrazeConfig:
 
 
 @dataclass
+class GrazeEnergyConfig:
+    """
+    擦弹能量系统配置参数。
+    能量满时自动激活增强状态，增强时能量持续消耗。
+    """
+    energy_per_graze: float = 5.0      # 每次擦弹获得的能量（20次擦弹充满）
+    max_energy: float = 100.0          # 最大能量值
+
+    # 增强状态时的能量消耗
+    drain_rate: float = 20.0           # 增强时能量消耗速率（/秒），100/20=5秒
+
+    # 能量衰减配置（非增强时）
+    decay_delay: float = 2.0           # 停止擦弹后多久开始衰减
+    decay_rate: float = 8.0            # 非增强时能量衰减速率（/秒）
+
+
+@dataclass
 class PlayerConfig:
     """玩家相关配置"""
     # 出生位置
