@@ -26,7 +26,6 @@ from .components import (
     EnemyBulletTag,
     EnemyBulletKind,
     EnemyBulletKindTag,
-    Shooting,
     FocusState,
     EnemyShootingV2,
     PlayerLife,
@@ -46,7 +45,6 @@ from .components import (
     RenderHint,
     HudData,
     ShotOriginOffset,
-    ShotConfig,
     BombConfigData,
     InputState,
     OptionConfig,
@@ -65,8 +63,7 @@ from .collision_events import CollisionEvents
 from .stage import StageState
 from .movement_path import PathLibrary, create_default_path_library
 from .bullet_patterns import BulletPatternConfig, BulletPatternKind
-from .character import CharacterId, get_character_preset, EnhancedShotConfig
-from .shot_handlers import ShotKind
+from .character import CharacterId, get_character_preset
 from .bomb_handlers import BombType
 
 
@@ -195,31 +192,21 @@ def spawn_player(state: GameState, x: float, y: float, character_id: Optional[Ch
 
     player.add(FocusState(is_focusing=False))
 
-    # 射击配置：优先使用新版 PlayerShotPattern
+    # 射击配置：使用 PlayerShotPattern
     if preset and hasattr(preset, 'shot_pattern') and preset.shot_pattern:
         player.add(PlayerShotPattern(pattern=copy.deepcopy(preset.shot_pattern)))
-        player.add(ShotOriginOffset(bullet_spawn_offset_y=preset.bullet_spawn_offset_y))
-    elif preset and preset.shot:
-        # 向后兼容：使用旧版 ShotConfig
-        shot_cfg = copy.deepcopy(preset.shot)
-        player.add(shot_cfg)
-        player.add(Shooting(cooldown=shot_cfg.cooldown))
-        player.add(ShotOriginOffset(bullet_spawn_offset_y=preset.bullet_spawn_offset_y))
     else:
         # 默认配置
-        shot_cfg = ShotConfig(
-            shot_type=ShotKind.SPREAD,
+        from .player_shot_patterns import PlayerShotPatternConfig, PlayerShotPatternKind
+        player.add(PlayerShotPattern(pattern=PlayerShotPatternConfig(
+            kind=PlayerShotPatternKind.SPREAD,
             cooldown=DEFAULT_SHOOT_COOLDOWN,
             bullet_speed=DEFAULT_BULLET_SPEED,
             damage=1,
-            angles_spread=[-20.0, -10.0, 0.0, 10.0, 20.0],
-            angles_focus=[-5.0, 0.0, 5.0],
-            bullet_sprite="player_bullet_basic",
-        )
-        player.add(shot_cfg)
-        player.add(Shooting(cooldown=shot_cfg.cooldown))
-        spawn_offset_y = cfg.bullet_spawn_offset_y if cfg else 16.0
-        player.add(ShotOriginOffset(bullet_spawn_offset_y=spawn_offset_y))
+        )))
+
+    spawn_offset_y = preset.bullet_spawn_offset_y if preset else (cfg.bullet_spawn_offset_y if cfg else 16.0)
+    player.add(ShotOriginOffset(bullet_spawn_offset_y=spawn_offset_y))
 
     # 炸弹配置
     if preset:
@@ -260,13 +247,6 @@ def spawn_player(state: GameState, x: float, y: float, character_id: Optional[Ch
         decay_timer=0.0,
         last_graze_count=0,
     ))
-
-    # 增强射击配置（从角色预设）
-    if preset and preset.enhanced_shot:
-        player.add(copy.deepcopy(preset.enhanced_shot))
-    else:
-        # 默认增强配置
-        player.add(EnhancedShotConfig())
 
     # 输入组件
     player.add(InputState())

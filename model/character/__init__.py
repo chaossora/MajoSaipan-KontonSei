@@ -13,7 +13,7 @@ from typing import Optional, List
 import copy
 
 from ..registry import Registry
-from ..components import ShotConfig, BombConfigData, OptionConfig, PlayerShotPattern
+from ..components import BombConfigData, OptionConfig
 from ..bomb_handlers import BombType
 from ..option_shot_handlers import OptionShotKind
 from ..player_shot_patterns import PlayerShotPatternConfig, PlayerShotPatternKind
@@ -23,21 +23,6 @@ class CharacterId(Enum):
     """角色 ID 枚举"""
     REIMU_A = auto()
     MARISA_A = auto()
-
-
-@dataclass
-class EnhancedShotConfig:
-    """
-    增强射击配置（用于擦弹能量系统）。
-    定义增强状态下的射击参数。
-    """
-    damage_multiplier: float = 1.5           # 主机伤害倍率
-    bullet_speed_multiplier: float = 1.2     # 弹速倍率
-    # 增强时的射击角度（比普通更密集或更宽）
-    angles_spread_enhanced: List[float] = field(default_factory=lambda: [-25.0, -15.0, -5.0, 0.0, 5.0, 15.0, 25.0])
-    angles_focus_enhanced: List[float] = field(default_factory=lambda: [-4.0, -2.0, 0.0, 2.0, 4.0])
-    # 子机增强
-    option_damage_multiplier: float = 1.5    # 子机伤害倍率
 
 
 @dataclass
@@ -52,10 +37,9 @@ class CharacterPreset:
     speed_focus: float          # 低速移动速度
     collider_radius: float      # 碰撞体半径
 
-    # 新版射击配置（参照敌人弹幕模式）
-    shot_pattern: PlayerShotPatternConfig
-    bomb: BombConfigData        # 炸弹配置
-    option: OptionConfig        # 子机配置
+    shot_pattern: PlayerShotPatternConfig   # 射击配置
+    bomb: BombConfigData                    # 炸弹配置
+    option: OptionConfig                    # 子机配置
 
     initial_lives: int = 3              # 初始残机
     initial_bombs: int = 3              # 初始炸弹
@@ -70,10 +54,6 @@ class CharacterPreset:
     sprite_name: str = "player_default"     # 精灵图名称
     sprite_offset_x: int = -16              # 精灵图 X 偏移
     sprite_offset_y: int = -16              # 精灵图 Y 偏移
-
-    # 旧版射击配置（向后兼容，可选）
-    shot: Optional[ShotConfig] = None
-    enhanced_shot: Optional[EnhancedShotConfig] = None
 
 
 character_registry: Registry[CharacterId] = Registry("character")
@@ -211,7 +191,6 @@ def _marisa_a() -> CharacterPreset:
 __all__ = [
     "CharacterId",
     "CharacterPreset",
-    "EnhancedShotConfig",
     "character_registry",
     "get_character_preset",
     "get_all_characters",

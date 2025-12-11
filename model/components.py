@@ -105,40 +105,16 @@ class FocusState:
 
 
 @dataclass
-class Shooting:
-    """运行时射击状态：仅包含冷却计时器。"""
-    cooldown: float
-    timer: float = 0.0
-
-
-@dataclass
 class ShotOriginOffset:
     """子弹生成位置相对于玩家位置的偏移。"""
     bullet_spawn_offset_y: float = 16.0
 
 
 @dataclass
-class ShotConfig:
-    """
-    玩家射击配置（组件）- 旧版，保留向后兼容。
-    shot_type: 用于从注册表中选择处理函数（延迟绑定）。
-    angles_*: 角度；0 表示正上方。
-    """
-    shot_type: object = None  # ShotKind (late import to avoid cycle)
-    cooldown: float = 0.08
-    bullet_speed: float = 520.0
-    damage: int = 1
-    angles_spread: List[float] = field(default_factory=lambda: [-10.0, 0.0, 10.0])
-    angles_focus: List[float] = field(default_factory=lambda: [-3.0, 0.0, 3.0])
-    bullet_sprite: str = "player_bullet_basic"
-
-
-@dataclass
 class PlayerShotPattern:
     """
-    玩家射击模式组件（新版）。
+    玩家射击模式组件。
     pattern: PlayerShotPatternConfig 配置（延迟导入避免循环）。
-    模式参照敌人弹幕系统 EnemyShootingV2。
     """
     pattern: object  # PlayerShotPatternConfig
     timer: float = 0.0
