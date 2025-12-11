@@ -30,15 +30,15 @@ def enemy_shoot_system(state: GameState, dt: float) -> None:
         pattern_cfg: BulletPatternConfig = cfg.pattern
         pattern_state: PatternState | None = cfg.state
 
-        # 执行弹幕模式，获取所有子弹速度
-        velocities = execute_pattern(state, pos, pattern_cfg, pattern_state)
+        # 执行弹幕模式，获取所有 ShotData
+        shots = execute_pattern(state, pos, pattern_cfg, pattern_state)
 
         # 生成所有子弹
-        for vel in velocities:
+        for shot in shots:
             spawn_enemy_bullet(
                 state,
-                x=pos.x,
-                y=pos.y,
-                velocity=vel,
+                x=pos.x + shot.offset.x,
+                y=pos.y + shot.offset.y,
+                velocity=shot.velocity,
                 damage=pattern_cfg.damage,
             )

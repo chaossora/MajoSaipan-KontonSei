@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import math
+from pygame.math import Vector2
 
 from ..game_state import GameState, spawn_player_bullet_with_velocity
 from ..actor import Actor
@@ -16,7 +16,7 @@ from ..components import (
     PlayerBulletKind,
     EnemyTag,
 )
-from ..player_shot_patterns import PlayerShotPatternConfig, execute_player_shot, ShotResult
+from ..player_shot_patterns import PlayerShotPatternConfig, execute_player_shot
 from ..option_shot_handlers import execute_option_shot
 
 
@@ -79,8 +79,8 @@ def _fire_with_pattern(
     for shot in results:
         spawn_player_bullet_with_velocity(
             state,
-            spawn_x + shot.x_offset,
-            spawn_y,
+            spawn_x + shot.offset.x,
+            spawn_y + shot.offset.y,
             shot.velocity,
             damage,
             kind,
@@ -137,8 +137,8 @@ def _fire_options_new(
         for shot in results:
             spawn_player_bullet_with_velocity(
                 state,
-                opt_pos[0],
-                opt_pos[1],
+                opt_pos[0] + shot.offset.x,
+                opt_pos[1] + shot.offset.y,
                 shot.velocity,
                 damage,
                 bullet_kind,
@@ -166,9 +166,13 @@ def _find_nearest_enemy_angle(state: GameState, x: float, y: float) -> float | N
     if nearest_pos is None:
         return None
 
-    dx = nearest_pos.x - x
-    dy = nearest_pos.y - y
-    if dx * dx + dy * dy < 1e-9:
+    to_enemy = Vector2(nearest_pos.x - x, nearest_pos.y - y)
+    if to_enemy.length_squared() < 1e-9:
         return None
 
-    return math.degrees(math.atan2(dx, -dy))
+    # as_polar() 返回 (length, angle_deg)
+    # pygame 角度：向右=0°, 向下=90°, 向上=-90°
+    # 我们需要：向上=0°, 向右=90°（给 Vector2(0,-speed).rotate() 用）
+    # 转换：result = pygame_angle + 90
+    _, pygame_angle = to_enemy.as_polar()
+    return pygame_angle + 90

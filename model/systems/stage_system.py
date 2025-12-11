@@ -1,8 +1,9 @@
 # model/systems/stage_system.py
 from __future__ import annotations
 
-import math
 from typing import Callable, TYPE_CHECKING
+
+from pygame.math import Vector2
 
 from ..game_state import GameState
 from ..stage import StageState, StageEvent, StageEventType, WavePattern
@@ -124,11 +125,13 @@ def _spawn_fan_wave(state: GameState, ev: StageEvent, spawner) -> None:
     # 比如 count=5, angle_step=15，则相对偏移为 [-30,-15,0,15,30]
     half = (ev.count - 1) * 0.5
 
+    # 基准向量：从圆心向右，长度为半径
+    base = Vector2(ev.radius, 0)
     for i in range(ev.count):
         angle = ev.angle_deg + (i - half) * ev.angle_step_deg
-        rad = math.radians(angle)
-        x = cx + math.cos(rad) * ev.radius
-        y = cy + math.sin(rad) * ev.radius
+        offset = base.rotate(angle)
+        x = cx + offset.x
+        y = cy + offset.y
         enemy = spawner(state, x, y)
         _attach_path_if_needed(enemy, ev)
 
@@ -148,9 +151,9 @@ def _spawn_spiral_wave(state: GameState, ev: StageEvent, spawner) -> None:
     for i in range(ev.count):
         radius = ev.radius + ev.radius_step * i
         angle = ev.angle_deg + ev.angle_step_deg * i
-        rad = math.radians(angle)
-        x = cx + math.cos(rad) * radius
-        y = cy + math.sin(rad) * radius
+        offset = Vector2(radius, 0).rotate(angle)
+        x = cx + offset.x
+        y = cy + offset.y
         enemy = spawner(state, x, y)
         _attach_path_if_needed(enemy, ev)
 

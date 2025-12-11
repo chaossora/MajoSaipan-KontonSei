@@ -1,13 +1,12 @@
 """
 玩家射击模式系统
 提供可扩展的玩家弹发射模式，使用注册表实现开闭原则。
-模式参照敌人弹幕系统 (bullet_patterns.py)。
+统一使用 ShotData（来自 bullet_patterns）作为返回类型。
 
-注册表函数只返回数据（偏移+速度），spawn 在 system 层统一处理。
+注册表函数只返回数据（offset + velocity），spawn 在 system 层统一处理。
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import List
@@ -15,6 +14,7 @@ from typing import List
 from pygame.math import Vector2
 
 from .registry import Registry
+from .bullet_patterns import ShotData
 
 
 class PlayerShotPatternKind(Enum):
@@ -51,15 +51,8 @@ class PlayerShotPatternConfig:
     offsets_focus_enhanced: List[float] = field(default_factory=lambda: [-12.0, -6.0, 0.0, 6.0, 12.0])
 
 
-@dataclass
-class ShotResult:
-    """射击结果：单发子弹的数据"""
-    x_offset: float      # 相对发射点的 X 偏移
-    velocity: Vector2    # 速度向量
-
-
 # 玩家射击模式注册表
-# 签名: (config, is_focusing, is_enhanced) -> List[ShotResult]
+# 签名: (config, is_focusing, is_enhanced) -> List[ShotData]
 player_shot_pattern_registry: Registry[PlayerShotPatternKind] = Registry("player_shot_pattern")
 
 
@@ -67,9 +60,9 @@ def execute_player_shot(
     config: PlayerShotPatternConfig,
     is_focusing: bool = False,
     is_enhanced: bool = False,
-) -> List[ShotResult]:
+) -> List[ShotData]:
     """
-    执行玩家射击模式，返回子弹数据列表。
+    执行玩家射击模式，返回 ShotData 列表。
     spawn 由 system 层处理。
     """
     handler = player_shot_pattern_registry.get(config.kind)
@@ -85,7 +78,7 @@ def _pattern_spread(
     config: PlayerShotPatternConfig,
     is_focusing: bool,
     is_enhanced: bool,
-) -> List[ShotResult]:
+) -> List[ShotData]:
     """扩散弹：根据角度列表生成"""
     if is_enhanced:
         angles = config.angles_focus_enhanced if is_focusing else config.angles_spread_enhanced
@@ -94,12 +87,9 @@ def _pattern_spread(
         angles = config.angles_focus if is_focusing else config.angles_spread
         speed = config.bullet_speed
     
-    results = []
-    for angle_deg in angles:
-        rad = math.radians(angle_deg - 90)
-        vel = Vector2(math.cos(rad) * speed, math.sin(rad) * speed)
-        results.append(ShotResult(x_offset=0.0, velocity=vel))
-    return results
+    # 基准向量：向上
+    base = Vector2(0, -speed)
+    return [ShotData(velocity=base.rotate(angle_deg)) for angle_deg in angles]
 
 
 @player_shot_pattern_registry.register(PlayerShotPatternKind.STRAIGHT)
@@ -107,7 +97,7 @@ def _pattern_straight(
     config: PlayerShotPatternConfig,
     is_focusing: bool,
     is_enhanced: bool,
-) -> List[ShotResult]:
+) -> List[ShotData]:
     """直射弹：根据水平偏移列表生成"""
     if is_enhanced:
         offsets = config.offsets_focus_enhanced if is_focusing else config.offsets_spread_enhanced
@@ -117,7 +107,7 @@ def _pattern_straight(
         speed = config.bullet_speed
     
     vel = Vector2(0, -speed)
-    return [ShotResult(x_offset=off, velocity=vel) for off in offsets]
+    return [ShotData(velocity=vel, offset=Vector2(off, 0)) for off in offsets]
 
 
 @player_shot_pattern_registry.register(PlayerShotPatternKind.HOMING)
@@ -125,6 +115,6 @@ def _pattern_homing(
     config: PlayerShotPatternConfig,
     is_focusing: bool,
     is_enhanced: bool,
-) -> List[ShotResult]:
+) -> List[ShotData]:
     """追踪弹：预留（追踪逻辑需在 system 层处理）"""
     return _pattern_spread(config, is_focusing, is_enhanced)
