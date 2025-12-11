@@ -11,6 +11,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Tuple, Optional, Callable
 
 from .registry import Registry
+from .components import PlayerBulletKind
 
 if TYPE_CHECKING:
     from .game_state import GameState
@@ -58,10 +59,10 @@ def dispatch_option_shot(
 
     handler: Optional[Callable] = option_shot_registry.get(option_cfg.option_shot_kind)
     if handler:
-        handler(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)
+        handler(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing, is_enhanced)
     else:
         # 回退到直射
-        _shot_straight(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)
+        _shot_straight(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing, is_enhanced)
 
 
 # ========== 基础射击类型 ==========
@@ -74,10 +75,12 @@ def _shot_straight(
     option_cfg: "OptionConfig",
     shot_cfg: "ShotConfig",
     is_focusing: bool,
+    is_enhanced: bool = False,
 ) -> None:
     """直射：始终向上发射。"""
     from .game_state import spawn_player_bullet
 
+    bullet_kind = PlayerBulletKind.OPTION_ENHANCED if is_enhanced else PlayerBulletKind.OPTION_NORMAL
     damage = max(1, int(shot_cfg.damage * option_cfg.damage_ratio))
     spawn_player_bullet(
         state,
@@ -86,6 +89,7 @@ def _shot_straight(
         damage=damage,
         speed=shot_cfg.bullet_speed,
         angle_deg=0.0,
+        bullet_kind=bullet_kind,
     )
 
 
@@ -97,11 +101,13 @@ def _shot_homing(
     option_cfg: "OptionConfig",
     shot_cfg: "ShotConfig",
     is_focusing: bool,
+    is_enhanced: bool = False,
 ) -> None:
     """追踪：瞄准最近的敌人。"""
     from .game_state import spawn_player_bullet
     from .components import Position, EnemyTag
 
+    bullet_kind = PlayerBulletKind.OPTION_ENHANCED if is_enhanced else PlayerBulletKind.OPTION_NORMAL
     damage = max(1, int(shot_cfg.damage * option_cfg.damage_ratio))
 
     # 查找最近的敌人
@@ -137,6 +143,7 @@ def _shot_homing(
         damage=damage,
         speed=shot_cfg.bullet_speed * 0.9,  # 追踪弹稍慢
         angle_deg=angle,
+        bullet_kind=bullet_kind,
     )
 
 
@@ -148,10 +155,12 @@ def _shot_spread(
     option_cfg: "OptionConfig",
     shot_cfg: "ShotConfig",
     is_focusing: bool,
+    is_enhanced: bool = False,
 ) -> None:
     """扩散：扇形发射多发子弹。"""
     from .game_state import spawn_player_bullet
 
+    bullet_kind = PlayerBulletKind.OPTION_ENHANCED if is_enhanced else PlayerBulletKind.OPTION_NORMAL
     # 扩散伤害稍低（多发）
     damage = max(1, int(shot_cfg.damage * option_cfg.damage_ratio * 0.6))
     angles = [-15.0, 0.0, 15.0]
@@ -164,6 +173,7 @@ def _shot_spread(
             damage=damage,
             speed=shot_cfg.bullet_speed,
             angle_deg=angle,
+            bullet_kind=bullet_kind,
         )
 
 
@@ -177,14 +187,15 @@ def _shot_reimu_style(
     option_cfg: "OptionConfig",
     shot_cfg: "ShotConfig",
     is_focusing: bool,
+    is_enhanced: bool = False,
 ) -> None:
     """
     灵梦风格：平时直射，Focus 追踪。
     """
     if is_focusing:
-        _shot_homing(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)
+        _shot_homing(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing, is_enhanced)
     else:
-        _shot_straight(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)
+        _shot_straight(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing, is_enhanced)
 
 
 @option_shot_registry.register(OptionShotKind.MARISA_STYLE)
@@ -195,14 +206,15 @@ def _shot_marisa_style(
     option_cfg: "OptionConfig",
     shot_cfg: "ShotConfig",
     is_focusing: bool,
+    is_enhanced: bool = False,
 ) -> None:
     """
     魔理沙风格：平时扩散，Focus 直射。
     """
     if is_focusing:
-        _shot_straight(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)
+        _shot_straight(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing, is_enhanced)
     else:
-        _shot_spread(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing)
+        _shot_spread(state, option_pos, option_index, option_cfg, shot_cfg, is_focusing, is_enhanced)
 
 
 __all__ = [

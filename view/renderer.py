@@ -4,8 +4,25 @@ import pygame
 
 from model.game_state import GameState
 from model.actor import Actor
-from model.components import Position, SpriteInfo, RenderHint, HudData, PlayerTag, BossHudData, OptionState, OptionConfig
+from model.components import (
+    Position, SpriteInfo, RenderHint, HudData, PlayerTag,
+    BossHudData, OptionState, OptionConfig,
+    PlayerBulletKindTag, PlayerBulletKind,
+)
 from model.game_config import CollectConfig
+
+
+# ====== 玩家子弹 Kind → Sprite 映射表 ======
+# View 层统一管理所有子弹贴图配置
+PLAYER_BULLET_SPRITES: dict[PlayerBulletKind, tuple[str, int, int]] = {
+    # kind: (sprite_name, offset_x, offset_y)
+    PlayerBulletKind.MAIN_NORMAL: ("player_bullet_main", -4, -8),
+    PlayerBulletKind.MAIN_ENHANCED: ("player_bullet_main_enhanced", -4, -8),
+    PlayerBulletKind.OPTION_NORMAL: ("player_bullet_option", -4, -8),
+    PlayerBulletKind.OPTION_ENHANCED: ("player_bullet_option_enhanced", -4, -8),
+}
+# 默认子弹 sprite（未知类型时的回退）
+DEFAULT_BULLET_SPRITE = ("player_bullet_basic", -4, -8)
 
 
 class Renderer:
@@ -40,8 +57,24 @@ class Renderer:
     def _draw_actor(self, actor: Actor) -> None:
         """绘制精灵和可选的渲染提示。"""
         pos = actor.get(Position)
+        if not pos:
+            return
+
+        # 优先检查是否是玩家子弹（通过 Kind 查表渲染）
+        bullet_kind_tag = actor.get(PlayerBulletKindTag)
+        if bullet_kind_tag:
+            sprite_name, ox, oy = PLAYER_BULLET_SPRITES.get(
+                bullet_kind_tag.kind, DEFAULT_BULLET_SPRITE
+            )
+            image = self.assets.get_image(sprite_name)
+            x = int(pos.x + ox)
+            y = int(pos.y + oy)
+            self.screen.blit(image, (x, y))
+            return
+
+        # 其他实体使用 SpriteInfo 渲染
         sprite = actor.get(SpriteInfo)
-        if not (pos and sprite):
+        if not sprite:
             return
 
         # 检查是否可见（闪烁效果）

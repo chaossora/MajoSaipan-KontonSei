@@ -21,6 +21,8 @@ from .components import (
     PlayerTag,
     EnemyTag,
     PlayerBulletTag,
+    PlayerBulletKind,
+    PlayerBulletKindTag,
     EnemyBulletTag,
     Shooting,
     FocusState,
@@ -337,15 +339,13 @@ def spawn_player_bullet(
     damage: int = 1,
     speed: float = 400.0,
     angle_deg: float = 0.0,
+    bullet_kind: PlayerBulletKind = PlayerBulletKind.MAIN_NORMAL,
 ) -> Actor:
     bullet = Actor()
 
     prefab: PlayerBulletPrefab = state.get_resource(PlayerBulletPrefab)  # type: ignore
     col_r = prefab.collider_radius if prefab else 4.0
     life = prefab.lifetime if prefab else 2.0
-    sprite = prefab.sprite_name if prefab else "player_bullet_basic"
-    sx = prefab.sprite_offset_x if prefab else -4
-    sy = prefab.sprite_offset_y if prefab else -8
 
     base_dir = Vector2(0, -1)  # upward
     dir_vec = base_dir.rotate(angle_deg)
@@ -355,13 +355,12 @@ def spawn_player_bullet(
     bullet.add(Velocity(vel_vec))
 
     bullet.add(PlayerBulletTag())
+    bullet.add(PlayerBulletKindTag(kind=bullet_kind))  # View 层根据此查表渲染
     bullet.add(Bullet(damage=damage))
 
     bullet.add(Collider(radius=col_r, layer=CollisionLayer.PLAYER_BULLET, mask=CollisionLayer.ENEMY))
 
     bullet.add(Lifetime(time_left=life))
-
-    bullet.add(SpriteInfo(name=sprite, offset_x=sx, offset_y=sy))
 
     state.add_actor(bullet)
     return bullet

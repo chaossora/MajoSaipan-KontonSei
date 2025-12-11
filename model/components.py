@@ -80,6 +80,22 @@ class BulletGrazeState:
     grazed: bool = False
 
 
+class PlayerBulletKind(Enum):
+    """
+    玩家子弹类型（Model 层只标记类型，View 层根据类型查表渲染）。
+    """
+    MAIN_NORMAL = auto()      # 主机普通弹
+    MAIN_ENHANCED = auto()    # 主机增强弹
+    OPTION_NORMAL = auto()    # 子机普通弹
+    OPTION_ENHANCED = auto()  # 子机增强弹
+
+
+@dataclass
+class PlayerBulletKindTag:
+    """玩家子弹类型标记组件。"""
+    kind: PlayerBulletKind = PlayerBulletKind.MAIN_NORMAL
+
+
 # ====== 玩家射击组件 ======
 
 @dataclass

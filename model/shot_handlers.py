@@ -6,7 +6,7 @@ from typing import Callable, Optional, TYPE_CHECKING
 from pygame.math import Vector2
 
 from .registry import Registry
-from .components import ShotConfig, ShotOriginOffset, FocusState
+from .components import ShotConfig, ShotOriginOffset, FocusState, PlayerBulletKind
 
 if TYPE_CHECKING:
     from .game_state import GameState
@@ -73,6 +73,7 @@ def dispatch_enhanced_player_shot(
             damage=enhanced_damage,
             speed=enhanced_speed,
             angle_deg=ang,
+            bullet_kind=PlayerBulletKind.MAIN_ENHANCED,
         )
 
 
@@ -97,6 +98,7 @@ def _shot_spread(
             damage=cfg.damage,
             speed=cfg.bullet_speed,
             angle_deg=ang,
+            bullet_kind=PlayerBulletKind.MAIN_NORMAL,
         )
 
 
