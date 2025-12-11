@@ -6,7 +6,7 @@ from .actor import Actor
 from .game_state import GameState
 from .registry import Registry
 from .components import (
-    Position, Velocity, SpriteInfo, Collider,
+    Position, Velocity, Collider,
     CollisionLayer, Health,
     EnemyTag, EnemyShootingV2,
     EnemyDropConfig, EnemyKind, EnemyKindTag,
@@ -34,12 +34,6 @@ def spawn_fairy_small(state: GameState, x: float, y: float, hp: int = 5) -> Acto
         radius=10.0,
         layer=CollisionLayer.ENEMY,
         mask=CollisionLayer.PLAYER_BULLET,
-    ))
-
-    enemy.add(SpriteInfo(
-        name="enemy_fairy_small",
-        offset_x=-16,
-        offset_y=-16,
     ))
 
     enemy.add(EnemyShootingV2(
@@ -81,12 +75,6 @@ def spawn_fairy_large(state: GameState, x: float, y: float, hp: int = 15) -> Act
         mask=CollisionLayer.PLAYER_BULLET,
     ))
 
-    enemy.add(SpriteInfo(
-        name="enemy_fairy_large",
-        offset_x=-20,
-        offset_y=-20,
-    ))
-
     enemy.add(EnemyShootingV2(
         cooldown=0.8,
         pattern=BulletPatternConfig(
@@ -124,12 +112,6 @@ def spawn_midboss(state: GameState, x: float, y: float, hp: int = 80) -> Actor:
         radius=24.0,
         layer=CollisionLayer.ENEMY,
         mask=CollisionLayer.PLAYER_BULLET,
-    ))
-
-    enemy.add(SpriteInfo(
-        name="enemy_midboss",
-        offset_x=-32,
-        offset_y=-32,
     ))
 
     # 可以不给 EnemyShooting，改用专门的脚本系统控制弹幕

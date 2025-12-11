@@ -8,6 +8,8 @@ from model.components import (
     Position, SpriteInfo, RenderHint, HudData, PlayerTag,
     BossHudData, OptionState, OptionConfig,
     PlayerBulletKindTag, PlayerBulletKind,
+    EnemyKindTag, EnemyKind,
+    EnemyBulletKindTag, EnemyBulletKind,
 )
 from model.game_config import CollectConfig
 
@@ -23,6 +25,25 @@ PLAYER_BULLET_SPRITES: dict[PlayerBulletKind, tuple[str, int, int]] = {
 }
 # 默认子弹 sprite（未知类型时的回退）
 DEFAULT_BULLET_SPRITE = ("player_bullet_basic", -4, -8)
+
+
+# ====== 敌人 Kind → Sprite 映射表 ======
+ENEMY_SPRITES: dict[EnemyKind, tuple[str, int, int]] = {
+    # kind: (sprite_name, offset_x, offset_y)
+    EnemyKind.FAIRY_SMALL: ("enemy_fairy_small", -16, -16),
+    EnemyKind.FAIRY_LARGE: ("enemy_fairy_large", -20, -20),
+    EnemyKind.MIDBOSS: ("enemy_midboss", -32, -32),
+    EnemyKind.BOSS: ("enemy_boss", -32, -32),
+}
+DEFAULT_ENEMY_SPRITE = ("enemy_basic", -16, -16)
+
+
+# ====== 敌人子弹 Kind → Sprite 映射表 ======
+ENEMY_BULLET_SPRITES: dict[EnemyBulletKind, tuple[str, int, int]] = {
+    # kind: (sprite_name, offset_x, offset_y)
+    EnemyBulletKind.BASIC: ("enemy_bullet_basic", -4, -4),
+}
+DEFAULT_ENEMY_BULLET_SPRITE = ("enemy_bullet_basic", -4, -4)
 
 
 class Renderer:
@@ -70,6 +91,39 @@ class Renderer:
             x = int(pos.x + ox)
             y = int(pos.y + oy)
             self.screen.blit(image, (x, y))
+            return
+
+        # 检查是否是敌人子弹（通过 Kind 查表渲染）
+        enemy_bullet_kind_tag = actor.get(EnemyBulletKindTag)
+        if enemy_bullet_kind_tag:
+            sprite_name, ox, oy = ENEMY_BULLET_SPRITES.get(
+                enemy_bullet_kind_tag.kind, DEFAULT_ENEMY_BULLET_SPRITE
+            )
+            image = self.assets.get_image(sprite_name)
+            x = int(pos.x + ox)
+            y = int(pos.y + oy)
+            self.screen.blit(image, (x, y))
+            return
+
+        # 检查是否是敌人（通过 Kind 查表渲染）
+        enemy_kind_tag = actor.get(EnemyKindTag)
+        if enemy_kind_tag:
+            sprite_name, ox, oy = ENEMY_SPRITES.get(
+                enemy_kind_tag.kind, DEFAULT_ENEMY_SPRITE
+            )
+            image = self.assets.get_image(sprite_name)
+            x = int(pos.x + ox)
+            y = int(pos.y + oy)
+            self.screen.blit(image, (x, y))
+            # 敌人也可能需要渲染提示（如碰撞框）
+            hint = actor.get(RenderHint)
+            if hint and hint.draw_collider:
+                from model.components import Collider
+                col = actor.get(Collider)
+                if col:
+                    pygame.draw.circle(
+                        self.screen, (255, 0, 0), (int(pos.x), int(pos.y)), int(col.radius), 1
+                    )
             return
 
         # 其他实体使用 SpriteInfo 渲染

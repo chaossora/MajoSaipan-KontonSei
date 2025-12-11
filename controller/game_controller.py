@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pygame
 
-from model.game_state import GameState, spawn_player, spawn_enemy, spawn_item
+from model.game_state import GameState, spawn_player, spawn_item
 from model.components import ItemType, InputState
 from model.character import CharacterId, get_character_preset
 from model.systems.movement import movement_system

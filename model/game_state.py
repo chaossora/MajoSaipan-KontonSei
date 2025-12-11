@@ -24,6 +24,8 @@ from .components import (
     PlayerBulletKind,
     PlayerBulletKindTag,
     EnemyBulletTag,
+    EnemyBulletKind,
+    EnemyBulletKindTag,
     Shooting,
     FocusState,
     EnemyShootingV2,
@@ -57,10 +59,6 @@ from .game_config import (
     PlayerConfig,
     BombConfig,
     BoundaryConfig,
-    ItemDropConfig,
-    PlayerBulletPrefab,
-    EnemyBulletPrefab,
-    EnemyPrefab,
 )
 from .collision_events import CollisionEvents
 from .stage import StageState
@@ -128,10 +126,6 @@ class GameState:
             PlayerConfig(),
             BombConfig(),
             BoundaryConfig(),
-            ItemDropConfig(),
-            PlayerBulletPrefab(),
-            EnemyBulletPrefab(),
-            EnemyPrefab(),
         ]
         for res in defaults:
             self.resources.setdefault(type(res), res)
@@ -300,38 +294,6 @@ def spawn_player(state: GameState, x: float, y: float, character_id: Optional[Ch
     return player
 
 
-def spawn_enemy(state: GameState, x: float, y: float, hp: int = 10) -> Actor:
-    enemy = Actor()
-
-    prefab: EnemyPrefab = state.get_resource(EnemyPrefab)  # type: ignore
-    col_r = prefab.collider_radius if prefab else 12.0
-    sprite = prefab.sprite_name if prefab else "enemy_basic"
-    sx = prefab.sprite_offset_x if prefab else -16
-    sy = prefab.sprite_offset_y if prefab else -16
-    base_hp = prefab.hp if prefab else hp
-
-    enemy.add(Position(x, y))
-    enemy.add(Velocity(Vector2(0, 0)))
-    enemy.add(EnemyTag())
-    enemy.add(Health(max_hp=base_hp, hp=base_hp))
-
-    enemy.add(Collider(radius=col_r, layer=CollisionLayer.ENEMY, mask=CollisionLayer.PLAYER_BULLET))
-
-    enemy.add(SpriteInfo(name=sprite, offset_x=sx, offset_y=sy))
-
-    enemy.add(
-        EnemyShootingV2(
-            cooldown=1.0,
-            pattern=BulletPatternConfig(kind=BulletPatternKind.AIM_PLAYER, bullet_speed=260.0, damage=1),
-        )
-    )
-
-    enemy.add(EnemyDropConfig(power_count=1, point_count=1, scatter_radius=16.0))
-
-    state.add_actor(enemy)
-    return enemy
-
-
 def spawn_player_bullet(
     state: GameState,
     x: float,
@@ -340,12 +302,10 @@ def spawn_player_bullet(
     speed: float = 400.0,
     angle_deg: float = 0.0,
     bullet_kind: PlayerBulletKind = PlayerBulletKind.MAIN_NORMAL,
+    collider_radius: float = 4.0,
+    lifetime: float = 2.0,
 ) -> Actor:
     bullet = Actor()
-
-    prefab: PlayerBulletPrefab = state.get_resource(PlayerBulletPrefab)  # type: ignore
-    col_r = prefab.collider_radius if prefab else 4.0
-    life = prefab.lifetime if prefab else 2.0
 
     base_dir = Vector2(0, -1)  # upward
     dir_vec = base_dir.rotate(angle_deg)
@@ -358,9 +318,9 @@ def spawn_player_bullet(
     bullet.add(PlayerBulletKindTag(kind=bullet_kind))  # View 层根据此查表渲染
     bullet.add(Bullet(damage=damage))
 
-    bullet.add(Collider(radius=col_r, layer=CollisionLayer.PLAYER_BULLET, mask=CollisionLayer.ENEMY))
+    bullet.add(Collider(radius=collider_radius, layer=CollisionLayer.PLAYER_BULLET, mask=CollisionLayer.ENEMY))
 
-    bullet.add(Lifetime(time_left=life))
+    bullet.add(Lifetime(time_left=lifetime))
 
     state.add_actor(bullet)
     return bullet
@@ -372,34 +332,29 @@ def spawn_enemy_bullet(
     y: float,
     velocity: Vector2,
     damage: int = 1,
+    bullet_kind: EnemyBulletKind = EnemyBulletKind.BASIC,
+    collider_radius: float = 4.0,
+    lifetime: float = 4.0,
 ) -> Actor:
     bullet = Actor()
-
-    prefab: EnemyBulletPrefab = state.get_resource(EnemyBulletPrefab)  # type: ignore
-    col_r = prefab.collider_radius if prefab else 4.0
-    life = prefab.lifetime if prefab else 4.0
-    sprite = prefab.sprite_name if prefab else "enemy_bullet_basic"
-    sx = prefab.sprite_offset_x if prefab else -4
-    sy = prefab.sprite_offset_y if prefab else -4
 
     bullet.add(Position(x, y))
     bullet.add(Velocity(velocity))
 
     bullet.add(EnemyBulletTag())
+    bullet.add(EnemyBulletKindTag(bullet_kind))
     bullet.add(Bullet(damage=damage))
     bullet.add(BulletGrazeState())
 
     bullet.add(
         Collider(
-            radius=col_r,
+            radius=collider_radius,
             layer=CollisionLayer.ENEMY_BULLET,
             mask=CollisionLayer.PLAYER | CollisionLayer.PLAYER_BULLET,
         )
     )
 
-    bullet.add(Lifetime(time_left=life))
-
-    bullet.add(SpriteInfo(name=sprite, offset_x=sx, offset_y=sy))
+    bullet.add(Lifetime(time_left=lifetime))
 
     state.add_actor(bullet)
     return bullet
@@ -432,6 +387,11 @@ def spawn_item(
     y: float,
     item_type: ItemType,
     value: int = 1,
+    pickup_radius: float = 12.0,
+    gravity: float = 200.0,
+    max_fall_speed: float = 220.0,
+    initial_up_speed: float = 120.0,
+    lifetime: float = 8.0,
 ) -> Actor:
     """
     创建基础道具实体：
@@ -440,16 +400,14 @@ def spawn_item(
     - 生命周期
     """
     item = Actor()
-    cfg: CollectConfig = state.get_resource(CollectConfig) or CollectConfig()  # type: ignore
-    drop_cfg: ItemDropConfig = state.get_resource(ItemDropConfig) or ItemDropConfig()  # type: ignore
 
     item.add(Position(x, y))
 
     # 初始向上速度
-    item.add(Velocity(Vector2(0, -drop_cfg.initial_up_speed)))
+    item.add(Velocity(Vector2(0, -initial_up_speed)))
 
     # 重力组件
-    item.add(Gravity(g=drop_cfg.gravity, max_fall_speed=drop_cfg.max_fall_speed))
+    item.add(Gravity(g=gravity, max_fall_speed=max_fall_speed))
 
     item.add(Item(type=item_type, value=value))
     item.add(ItemTag())
@@ -461,11 +419,11 @@ def spawn_item(
     else:
         sprite_name = "item_power"
 
-    item.add(Collider(radius=cfg.pickup_radius, layer=CollisionLayer.ITEM, mask=CollisionLayer.PLAYER))
+    item.add(Collider(radius=pickup_radius, layer=CollisionLayer.ITEM, mask=CollisionLayer.PLAYER))
 
     item.add(SpriteInfo(name=sprite_name, offset_x=-8, offset_y=-8))
 
-    item.add(Lifetime(time_left=8.0))
+    item.add(Lifetime(time_left=lifetime))
 
     state.add_actor(item)
     return item

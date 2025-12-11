@@ -267,6 +267,18 @@ class EnemyKindTag:
     kind: EnemyKind
 
 
+class EnemyBulletKind(Enum):
+    """敌人子弹种类 - View 层根据此枚举查表获取精灵"""
+    BASIC = auto()
+    # 未来可扩展更多类型，如 LARGE, AIMED, LASER 等
+
+
+@dataclass
+class EnemyBulletKindTag:
+    """敌人子弹种类标签 - Model 层只标记类型，View 层负责查表获取精灵"""
+    kind: EnemyBulletKind
+
+
 @dataclass
 class PathFollower:
     path_name: str
