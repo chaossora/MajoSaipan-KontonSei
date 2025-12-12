@@ -12,22 +12,68 @@ class Assets:
         self.images: dict[str, pygame.Surface] = {}
 
     def load(self) -> None:
-        # player_default
-        player_img = pygame.Surface((32, 32), pygame.SRCALPHA)
-        pygame.draw.circle(player_img, (0, 200, 255), (16, 16), 10)
-        self.images["player_default"] = player_img
+        # Load Character Sprite Sheet
+        try:
+            # Correct path verified: assets/sprites/characters/ema.png
+            sheet = pygame.image.load("assets/sprites/characters/ema.png").convert_alpha()
+            # Dimensions: 2784 x 1536
+            # Rows: 3 (Idle, Left, Right)
+            # Cols: 8
+            # Cell Size: 348 x 512
+            
+            cell_width = 2784 // 8
+            cell_height = 1536 // 3
+            
+            # Scale down to reasonable game size
+            # height 512 -> 64 (1/8 scale) looks good for a 480x640 screen
+            target_height = 64
+            scale_ratio = target_height / cell_height
+            target_width = int(cell_width * scale_ratio)
 
-        # player_reimu
-        reimu = pygame.Surface((32, 32), pygame.SRCALPHA)
-        pygame.draw.circle(reimu, (255, 80, 120), (16, 16), 10)
-        pygame.draw.circle(reimu, (255, 200, 220), (16, 12), 6)
-        self.images["player_reimu"] = reimu
+            frames = []
+            for row in range(3):
+                row_frames = []
+                for col in range(8):
+                    rect = pygame.Rect(col * cell_width, row * cell_height, cell_width, cell_height)
+                    sub_surface = sheet.subsurface(rect)
+                    scaled = pygame.transform.smoothscale(sub_surface, (target_width, target_height))
+                    row_frames.append(scaled)
+                frames.append(row_frames)
 
-        # player_marisa
-        marisa = pygame.Surface((32, 32), pygame.SRCALPHA)
-        pygame.draw.circle(marisa, (255, 215, 0), (16, 16), 10)
-        pygame.draw.circle(marisa, (255, 255, 180), (16, 12), 6)
-        self.images["player_marisa"] = marisa
+            # Store frames
+            # Row 0: Idle (Forward), Row 1: Left, Row 2: Right
+            
+            # Use the first frame of Idle as default static image
+            self.images["player_default"] = frames[0][0]
+            self.images["player_reimu"] = frames[0][0]
+            self.images["player_marisa"] = frames[0][0]
+            
+            # Store animation frames for renderer to use
+            self.player_frames = {
+                "idle": frames[0],
+                "left": frames[1],
+                "right": frames[2]
+            }
+            print(f"Loaded sprite sheet: ema.png ({target_width}x{target_height} per frame)")
+            
+        except FileNotFoundError:
+            print("Warning: Sprite sheet assets/sprites/characters/ema.png not found. Using placeholders.")
+            # player_default placeholder
+            player_img = pygame.Surface((32, 32), pygame.SRCALPHA)
+            pygame.draw.circle(player_img, (0, 200, 255), (16, 16), 10)
+            self.images["player_default"] = player_img
+
+            # player_reimu placeholder
+            reimu = pygame.Surface((32, 32), pygame.SRCALPHA)
+            pygame.draw.circle(reimu, (255, 80, 120), (16, 16), 10)
+            pygame.draw.circle(reimu, (255, 200, 220), (16, 12), 6)
+            self.images["player_reimu"] = reimu
+
+            # player_marisa placeholder
+            marisa = pygame.Surface((32, 32), pygame.SRCALPHA)
+            pygame.draw.circle(marisa, (255, 215, 0), (16, 16), 10)
+            pygame.draw.circle(marisa, (255, 255, 180), (16, 12), 6)
+            self.images["player_marisa"] = marisa
 
         # enemy_basic
         enemy_img = pygame.Surface((32, 32), pygame.SRCALPHA)
@@ -75,12 +121,59 @@ class Assets:
         pygame.draw.circle(bomb_item, (180, 255, 180), (8, 6), 4)
         self.images["item_bomb"] = bomb_item
 
-        # player_bullet_basic
-        pb = pygame.Surface((8, 16), pygame.SRCALPHA)
-        pygame.draw.rect(pb, (255, 255, 0), (2, 0, 4, 16))
-        self.images["player_bullet_basic"] = pb
+        # ====== Player Bullets ======
+        
+        # 1. Normal Bullet (Shared)
+        try:
+            # assets/sprites/bullets/bullet_normal.png
+            # 原始方向：左(底) -> 右(头)。
+            # 顺时针旋转 -90 或 逆时针 90 得到：下(底) -> 上(头)。
+            bn_src = pygame.image.load("assets/sprites/bullets/bullet_normal.png").convert_alpha()
+            bn_rot = pygame.transform.rotate(bn_src, 90)
+            # Increase size to 20x40
+            bn = pygame.transform.smoothscale(bn_rot, (20, 40))
+            self.images["player_bullet_normal"] = bn
+        except (FileNotFoundError, pygame.error):
+            # Fallback
+            pb = pygame.Surface((20, 40), pygame.SRCALPHA)
+            pygame.draw.rect(pb, (255, 255, 0), (5, 0, 10, 40))
+            self.images["player_bullet_normal"] = pb
 
-        # player_bullet_missile
+        # 2. Enhanced Bullet (Shared)
+        try:
+            # assets/sprites/bullets/bullet_enhanced.png
+            be_src = pygame.image.load("assets/sprites/bullets/bullet_enhanced.png").convert_alpha()
+            be_rot = pygame.transform.rotate(be_src, 90)
+            # Increase size to 48x96 (1.5x)
+            be = pygame.transform.smoothscale(be_rot, (48, 96))
+            self.images["player_bullet_enhanced"] = be
+        except (FileNotFoundError, pygame.error):
+            be = pygame.Surface((48, 96), pygame.SRCALPHA)
+            pygame.draw.rect(be, (255, 200, 50), (12, 0, 24, 96))
+            self.images["player_bullet_enhanced"] = be
+
+        # 3. Option Tracking Bullet (Unique)
+        try:
+            # assets/sprites/bullets/bullet_option.png
+            bo_src = pygame.image.load("assets/sprites/bullets/bullet_option.png").convert_alpha()
+            bo_rot = pygame.transform.rotate(bo_src, 90)
+            # 追踪弹通常稍微宽一点或特别一点，设定为 16x32
+            bo = pygame.transform.smoothscale(bo_rot, (20, 32))
+            self.images["player_bullet_option_tracking"] = bo
+        except (FileNotFoundError, pygame.error):
+            bo = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(bo, (100, 255, 100), (8, 8), 6)
+            self.images["player_bullet_option_tracking"] = bo
+
+        # Aliases for compatibility/Renderer mapping
+        self.images["player_bullet_main"] = self.images["player_bullet_normal"]
+        self.images["player_bullet_main_enhanced"] = self.images["player_bullet_enhanced"]
+        
+        # Option normal/enhanced alias to player normal/enhanced as per request
+        self.images["player_bullet_option"] = self.images["player_bullet_normal"]
+        self.images["player_bullet_option_enhanced"] = self.images["player_bullet_enhanced"]
+
+        # player_bullet_missile (Legacy/Unused?)
         pbm = pygame.Surface((8, 16), pygame.SRCALPHA)
         pygame.draw.rect(pbm, (255, 180, 50), (1, 0, 6, 16), border_radius=2)
         pygame.draw.rect(pbm, (255, 255, 200), (2, 2, 4, 8), border_radius=2)

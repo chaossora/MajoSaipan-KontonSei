@@ -43,6 +43,7 @@ class PlayerShotPatternConfig:
     offsets_focus: List[float] = field(default_factory=lambda: [-8.0, 0.0, 8.0])
     
     # 增强模式参数
+    enhanced_cooldown_multiplier: float = 1.0  # 强化状态下的冷却时间倍率
     enhanced_damage_multiplier: float = 1.5
     enhanced_speed_multiplier: float = 1.2
     angles_spread_enhanced: List[float] = field(default_factory=lambda: [-15.0, -7.5, 0.0, 7.5, 15.0])

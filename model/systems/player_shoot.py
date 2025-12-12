@@ -86,7 +86,11 @@ def _fire_with_pattern(
             kind,
         )
 
-    shot_pattern.timer = config.cooldown
+    # 计算冷却时间（应用强化倍率）
+    base_cooldown = config.cooldown
+    if is_enhanced:
+        base_cooldown *= config.enhanced_cooldown_multiplier
+    shot_pattern.timer = base_cooldown
 
     # 子机射击
     _fire_options_new(state, player, config, pos, is_focusing, is_enhanced)
@@ -114,7 +118,10 @@ def _fire_options_new(
         damage_ratio *= shot_config.enhanced_damage_multiplier
     damage = max(1, int(base_damage * damage_ratio))
 
-    bullet_kind = PlayerBulletKind.OPTION_ENHANCED if is_enhanced else PlayerBulletKind.OPTION_NORMAL
+    if is_focusing:
+        bullet_kind = PlayerBulletKind.OPTION_TRACKING
+    else:
+        bullet_kind = PlayerBulletKind.OPTION_ENHANCED if is_enhanced else PlayerBulletKind.OPTION_NORMAL
 
     for i in range(option_state.active_count):
         if i >= len(option_state.current_positions):
