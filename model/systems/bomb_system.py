@@ -53,7 +53,7 @@ def bomb_system(
     if bomb.bombs <= 0:
         return
 
-    # 如果组件缺失则回退到全局配置
+    # 组件缺失时回退到全局配置
     if bomb_cfg is None:
         from ..game_config import BombConfig
         bomb_defaults: BombConfig = state.get_resource(BombConfig) or BombConfig()  # type: ignore

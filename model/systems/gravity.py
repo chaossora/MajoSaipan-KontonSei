@@ -18,7 +18,7 @@ def gravity_system(state: GameState, dt: float) -> None:
         if not (vel and g):
             continue
 
-        # 只作用在 y 方向
+        # 只作用于 Y 方向
         vel.vec.y += g.g * dt
 
         # 限制最大下落速度

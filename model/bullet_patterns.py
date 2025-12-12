@@ -78,7 +78,7 @@ class PatternState:
 
 
 # 弹幕模式注册表
-# 返回值类型: List[ShotData] 统一的射击数据
+# 返回值类型：List[ShotData] 统一的射击数据
 bullet_pattern_registry: Registry[BulletPatternKind] = Registry("bullet_pattern")
 
 
@@ -102,7 +102,7 @@ def execute_pattern(
     """
     handler = bullet_pattern_registry.get(config.kind)
     if not handler:
-        # 默认直下
+        # 默认向下
         return [ShotData(velocity=Vector2(0, config.bullet_speed))]
 
     return handler(state, shooter_pos, config, pattern_state)
@@ -161,8 +161,8 @@ def _pattern_n_way(
     """
     from .components import Position as Pos
 
-    # 计算基准方向（朝向玩家或直下）
-    base_dir = Vector2(0, 1)  # 默认直下
+    # 计算基准方向（朝向玩家或向下）
+    base_dir = Vector2(0, 1)  # 默认向下
     if state.player:
         player_pos = state.player.get(Pos)
         if player_pos:
@@ -202,7 +202,7 @@ def _pattern_ring(
     count = max(1, config.count)
     angle_step = 360.0 / count
 
-    # 基准向量（向右），然后旋转
+    # 基准向量（向右），旋转后发射
     base = Vector2(config.bullet_speed, 0)
     for i in range(count):
         angle = config.start_angle_deg + angle_step * i
@@ -227,7 +227,7 @@ def _pattern_spiral(
     count = max(1, config.count)
     angle_step = 360.0 / count
 
-    # 获取当前旋转角度
+    # 获取当前累积旋转角度
     current = config.start_angle_deg
     if pattern_state:
         current = pattern_state.current_angle
@@ -237,7 +237,7 @@ def _pattern_spiral(
         angle = current + angle_step * i
         results.append(ShotData(velocity=base.rotate(angle)))
 
-    # 更新状态（如果有）
+    # 更新旋转状态（如果有）
     if pattern_state:
         pattern_state.current_angle += config.spin_speed_deg
 

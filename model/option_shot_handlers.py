@@ -26,8 +26,8 @@ class OptionShotKind(Enum):
 
 
 # 子机射击模式注册表
-# 签名: (speed, is_focusing, target_angle) -> List[ShotData]
-# target_angle: 追踪目标的角度（由 system 层计算）
+# 签名：(speed, is_focusing, target_angle) -> List[ShotData]
+# target_angle：追踪目标角度（由系统层计算）
 option_shot_registry: Registry[OptionShotKind] = Registry("option_shot")
 
 
@@ -74,7 +74,7 @@ def _shot_homing(
     """追踪：朝目标角度发射（稍慢）"""
     angle = target_angle if target_angle is not None else 0.0
     homing_speed = speed * 0.9
-    # 基准向上，旋转到目标角度
+    # 基准向量向上，旋转到目标角度
     vel = Vector2(0, -homing_speed).rotate(angle)
     return [ShotData(velocity=vel)]
 

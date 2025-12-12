@@ -109,14 +109,14 @@ class GameState:
     # 移动路径库
     path_library: PathLibrary = field(default_factory=create_default_path_library)
 
-    # HUD / 调试用统计
+    # HUD 和调试用统计
     entity_stats: EntityStats = field(default_factory=EntityStats)
 
     # 游戏结束标志（玩家残机 <= 0）
     game_over: bool = False
 
     def __post_init__(self) -> None:
-        # 如果缺少默认资源则初始化
+        # 初始化缺少的默认资源
         defaults = [
             CollectConfig(),
             GrazeConfig(),
@@ -135,7 +135,7 @@ class GameState:
         if actor in self.actors:
             self.actors.remove(actor)
 
-    # 便捷辅助方法用于玩家查找（以后支持多人模式）
+    # 便捷辅助方法：玩家查找（预留多人模式支持）
     def get_player(self) -> Optional[Actor]:
         return next((a for a in self.actors if a.get(PlayerTag)), None)
 
@@ -150,7 +150,7 @@ class GameState:
         return self.resources.get(res_type)
 
 
-# ======= 工厂函数 =======
+# ======= 实体工厂函数 =======
 
 DEFAULT_SHOOT_COOLDOWN = 0.08
 DEFAULT_BULLET_SPEED = 520.0
@@ -255,7 +255,7 @@ def spawn_player(state: GameState, x: float, y: float, character_id: Optional[Ch
     if preset:
         option_cfg = copy.deepcopy(preset.option)
     else:
-        # 默认子机配置（如果没有角色预设）
+        # 默认子机配置（无角色预设时使用）
         option_cfg = OptionConfig(
             max_options=4,
             damage_ratio=0.5,
@@ -295,7 +295,7 @@ def spawn_player_bullet(
 ) -> Actor:
     bullet = Actor()
 
-    base_dir = Vector2(0, -1)  # upward
+    base_dir = Vector2(0, -1)  # 向上
     dir_vec = base_dir.rotate(angle_deg)
     vel_vec = dir_vec * speed
 
@@ -303,7 +303,7 @@ def spawn_player_bullet(
     bullet.add(Velocity(vel_vec))
 
     bullet.add(PlayerBulletTag())
-    bullet.add(PlayerBulletKindTag(kind=bullet_kind))  # View 层根据此查表渲染
+    bullet.add(PlayerBulletKindTag(kind=bullet_kind))  # View 层根据此类型查表渲染
     bullet.add(Bullet(damage=damage))
 
     bullet.add(Collider(radius=collider_radius, layer=CollisionLayer.PLAYER_BULLET, mask=CollisionLayer.ENEMY))

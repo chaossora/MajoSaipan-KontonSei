@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     pass
 
 # 路径处理器注册表
-# 处理函数签名: (cfg, pf, pos, vel) -> None
+# 处理函数签名：(cfg, pf, pos, vel) -> None
 path_handler_registry: Registry[PathKind] = Registry("path_handler")
 
 
@@ -57,7 +57,7 @@ def _update_velocity_by_path(
     if not cfg:
         return
 
-    # 第一次初始化原点（出生位置）
+    # 首次初始化原点（记录出生位置）
     if not pf.initialized:
         pf.origin_x = pos.x
         pf.origin_y = pos.y
@@ -65,7 +65,7 @@ def _update_velocity_by_path(
 
     pf.t += dt
 
-    # 使用注册表获取路径处理函数
+    # 从注册表获取路径处理函数
     handler = path_handler_registry.get(cfg.kind)
     if handler:
         handler(cfg, pf, pos, vel)
@@ -91,15 +91,15 @@ def _path_sine_h(cfg: PathConfig, pf: PathFollower, pos: Position, vel: Velocity
     - Y 方向匀速向下
     - X = origin_x + amplitude * sin(2π f t)
     """
-    # 下落速度（只影响 y 分量）
+    # 下落速度（只影响 Y 分量）
     vel.vec.y = cfg.speed
 
-    # 计算目标 x（不直接修改 origin）
+    # 计算目标 X 位置（不修改原点）
     offset_x = cfg.amplitude * math.sin(2.0 * math.pi * cfg.frequency * pf.t)
     target_x = pf.origin_x + offset_x
 
-    # 当前 x -> target_x，直接把位置拉过去（不通过速度）
+    # 直接将 X 位置设为目标值（不通过速度）
     pos.x = target_x
 
-    # x 方向速度设为 0，反正 x 直接被上面那行覆盖
+    # X 方向速度设为 0，因为 X 位置已被直接覆盖
     vel.vec.x = 0.0

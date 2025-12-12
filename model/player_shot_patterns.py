@@ -52,7 +52,7 @@ class PlayerShotPatternConfig:
 
 
 # 玩家射击模式注册表
-# 签名: (config, is_focusing, is_enhanced) -> List[ShotData]
+# 签名：(config, is_focusing, is_enhanced) -> List[ShotData]
 player_shot_pattern_registry: Registry[PlayerShotPatternKind] = Registry("player_shot_pattern")
 
 
@@ -87,7 +87,7 @@ def _pattern_spread(
         angles = config.angles_focus if is_focusing else config.angles_spread
         speed = config.bullet_speed
     
-    # 基准向量：向上
+    # 基准向量（向上）
     base = Vector2(0, -speed)
     return [ShotData(velocity=base.rotate(angle_deg)) for angle_deg in angles]
 

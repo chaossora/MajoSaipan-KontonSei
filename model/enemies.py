@@ -13,7 +13,7 @@ from .components import (
 )
 from .bullet_patterns import BulletPatternConfig, BulletPatternKind, PatternState
 
-# 敌人工厂注册表：使用装饰器自动注册 EnemyKind -> spawn 函数
+# 敌人工厂注册表：使用装饰器自动注册 EnemyKind → spawn 函数
 enemy_registry: Registry[EnemyKind] = Registry("enemy")
 
 
@@ -45,7 +45,7 @@ def spawn_fairy_small(state: GameState, x: float, y: float, hp: int = 5) -> Acto
         ),
     ))
 
-    # 小妖精：一般只掉 1 Power，偶尔 1 Point
+    # 小妖精：通常只掉 1 个 Power
     enemy.add(EnemyDropConfig(
         power_count=1,
         point_count=0,
@@ -84,7 +84,7 @@ def spawn_fairy_large(state: GameState, x: float, y: float, hp: int = 15) -> Act
         ),
     ))
 
-    # 大妖精：掉更多 Power + 一些 Point
+    # 大妖精：掉落更多 Power 和 Point
     enemy.add(EnemyDropConfig(
         power_count=3,
         point_count=2,
@@ -114,7 +114,7 @@ def spawn_midboss(state: GameState, x: float, y: float, hp: int = 80) -> Actor:
         mask=CollisionLayer.PLAYER_BULLET,
     ))
 
-    # 可以不给 EnemyShooting，改用专门的脚本系统控制弹幕
+    # 可以不添加 EnemyShooting，改用专门的脚本系统控制弹幕
 
     enemy.add(EnemyDropConfig(
         power_count=8,

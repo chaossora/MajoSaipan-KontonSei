@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 def ease_out_quad(t: float) -> float:
-    """ease-out 二次缓动：开始快，结束时减速。"""
+    """二次缓出函数：开始快，结束时减速。"""
     return 1.0 - (1.0 - t) ** 2
 
 

@@ -28,10 +28,10 @@ def clear_non_boss_enemies(state: GameState) -> None:
         if not actor.has(EnemyTag):
             continue
         kind_tag = actor.get(EnemyKindTag)
-        # 只保留 BOSS
+        # 只保留 Boss
         if kind_tag and kind_tag.kind == EnemyKind.BOSS:
             continue
-        # 标记死亡，让 enemy_death_system 处理掉落
+        # 标记死亡，由 enemy_death_system 处理掉落
         if not actor.get(EnemyJustDied):
             actor.add(EnemyJustDied(by_player_bullet=False, by_bomb=False))
 
@@ -69,7 +69,7 @@ def player_respawn_visual_system(state: GameState, dt: float) -> None:
     if not (dmg and respawn and sprite):
         return
 
-    # 无敌时间结束时停止闪烁
+    # 无敌时间结束时停止闪烁效果
     if dmg.invincible_timer <= 0.0:
         respawn.respawning = False
         sprite.visible = True

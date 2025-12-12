@@ -15,11 +15,11 @@ if TYPE_CHECKING:
     from ..actor import Actor
 
 # 波次模式注册表
-# 处理函数签名: (state, ev, spawner) -> None
+# 处理函数签名：(state, ev, spawner) -> None
 wave_pattern_registry: Registry[WavePattern] = Registry("wave_pattern")
 
-# Boss 注册表
-# 处理函数签名: (state, x, y) -> Actor
+# Boss 工厂注册表
+# 处理函数签名：(state, x, y) -> Actor
 boss_registry: Registry[str] = Registry("boss")
 
 
@@ -57,7 +57,7 @@ def _execute_stage_event(state: GameState, ev: StageEvent) -> None:
 
 def _spawn_wave(state: GameState, ev: StageEvent) -> None:
     """生成一波敌人。"""
-    # 安全检查：SPAWN_WAVE 必须有 enemy_kind 和 pattern
+    # 安全检查：SPAWN_WAVE 事件必须有 enemy_kind 和 pattern
     if ev.enemy_kind is None or ev.pattern is None:
         return
 
@@ -65,7 +65,7 @@ def _spawn_wave(state: GameState, ev: StageEvent) -> None:
     if not spawner:
         return
 
-    # 使用注册表获取波次模式处理函数
+    # 从注册表获取波次模式处理函数
     handler = wave_pattern_registry.get(ev.pattern)
     if handler:
         handler(state, ev, spawner)
@@ -121,11 +121,11 @@ def _spawn_fan_wave(state: GameState, ev: StageEvent, spawner) -> None:
     cx = ev.start_x
     cy = ev.start_y
 
-    # 让扇形的中心对准 angle_deg，左右对称更好看：
-    # 比如 count=5, angle_step=15，则相对偏移为 [-30,-15,0,15,30]
+    # 让扇形中心对准 angle_deg，左右对称更美观：
+    # 例如 count=5, angle_step=15，则相对偏移为 [-30,-15,0,15,30]
     half = (ev.count - 1) * 0.5
 
-    # 基准向量：从圆心向右，长度为半径
+    # 基准向量：从圆心向右，长度等于半径
     base = Vector2(ev.radius, 0)
     for i in range(ev.count):
         angle = ev.angle_deg + (i - half) * ev.angle_step_deg

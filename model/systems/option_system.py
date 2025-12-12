@@ -1,22 +1,21 @@
 # model/systems/option_system.py
 """
-Option (Familiar) System - Touhou-style option management.
+子机系统 - 东方风格子机管理。
 
-Updates option count based on Power level and smoothly interpolates
-option positions using dynamic symmetric distribution.
+根据火力等级更新子机数量，使用动态对称分布平滑插值子机位置。
 
-Power to Option count mapping:
-- Power 0-1: 0 options
-- Power 1-2: 1 option
-- Power 2-3: 2 options
-- Power 3-4: 3 options
-- Power 4 (MAX): 4 options
+火力到子机数量映射：
+- 火力 0-1: 0 个子机
+- 火力 1-2: 1 个子机
+- 火力 2-3: 2 个子机
+- 火力 3-4: 3 个子机
+- 火力 4 (满): 4 个子机
 
-Dynamic Symmetric Positioning:
-- 1 option: center
-- 2 options: left, right
-- 3 options: center, left, right
-- 4 options: inner pair, outer pair
+动态对称位置分布：
+- 1 个子机: 中央
+- 2 个子机: 左、右
+- 3 个子机: 中央、左、右
+- 4 个子机: 内层对、外层对
 """
 from __future__ import annotations
 
@@ -33,10 +32,10 @@ if TYPE_CHECKING:
 
 def option_system(state: GameState, dt: float) -> None:
     """
-    Update option count and positions for the player.
+    更新玩家子机数量和位置。
 
-    This system should run after player_move_system (which updates FocusState)
-    and before player_shoot_system.
+    此系统应在 player_move_system（更新 FocusState）之后、
+    player_shoot_system 之前运行。
     """
     player = state.get_player()
     if not player:
@@ -51,16 +50,16 @@ def option_system(state: GameState, dt: float) -> None:
     if not (pos and power and focus and option_cfg and option_state):
         return
 
-    # Calculate active option count based on power level
-    # Power 0-1: 0, Power 1-2: 1, Power 2-3: 2, Power 3-4: 3, Power 4: 4
+    # 根据火力等级计算激活的子机数量
+    # 火力 0-1: 0, 火力 1-2: 1, 火力 2-3: 2, 火力 3-4: 3, 火力 4: 4
     new_count = min(option_cfg.max_options, max(0, int(power.power)))
     old_count = option_state.active_count
 
-    # Handle option count changes
+    # 处理子机数量变化
     if new_count != old_count:
         _handle_option_count_change(option_state, option_cfg, pos, new_count, focus.is_focusing)
 
-    # Update option positions with smooth interpolation
+    # 使用平滑插值更新子机位置
     _update_option_positions(
         player_pos=pos,
         option_cfg=option_cfg,

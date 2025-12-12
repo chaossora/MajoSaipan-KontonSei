@@ -48,14 +48,14 @@ def _apply_player_bullet_hits_enemy(ev: PlayerBulletHitEnemy,
     kind_tag = enemy.get(EnemyKindTag)
     is_boss = kind_tag and kind_tag.kind == EnemyKind.BOSS
 
-    # Boss 符卡期间的特殊处理
+    # Boss 符卡期间特殊处理
     spell_state = enemy.get(SpellCardState)
     if spell_state:
         # 生存符卡：Boss 无敌，不扣血
         if spell_state.invulnerable:
             to_remove.add(bullet)
             return
-        # 应用伤害倍率（符卡期间通常 < 1，减少伤害）
+        # 应用伤害倍率（符卡期间通常小于 1，减少伤害）
         # 使用 max(1, ...) 保证最小 1 点伤害，避免 int(1 * 0.8) = 0 的问题
         damage = max(1, int(bullet_data.damage * spell_state.damage_multiplier))
     else:
@@ -71,7 +71,7 @@ def _apply_player_bullet_hits_enemy(ev: PlayerBulletHitEnemy,
     to_remove.add(bullet)
 
     if health.hp <= 0:
-        # Boss 死亡由 boss_phase_system 处理，这里不添加 EnemyJustDied
+        # Boss 死亡由 boss_phase_system 处理，此处不添加 EnemyJustDied
         if is_boss:
             return
 
@@ -97,7 +97,7 @@ def _apply_enemy_bullet_hits_player(ev: EnemyBulletHitPlayer,
         return
 
     damage_state.pending_death = True
-    # 每次被击中都重置 deathbomb 窗口，让玩家有足够时间反应
+    # 每次被击中都重置死亡炸弹窗口，让玩家有足够时间反应
     damage_state.deathbomb_timer = damage_state.deathbomb_window
 
     to_remove.add(bullet)

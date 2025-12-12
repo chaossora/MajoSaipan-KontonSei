@@ -45,6 +45,6 @@ def boundary_system(state: GameState) -> None:
             ):
                 to_remove.append(actor)
 
-    # 统一删除出界子弹，避免遍历中修改列表
+    # 统一删除出界子弹，避免在遍历中修改列表
     for actor in to_remove:
         state.remove_actor(actor)

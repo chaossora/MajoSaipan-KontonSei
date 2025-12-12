@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 # 物品效果注册表
-# 处理函数签名: (state, player, item_actor, item_value) -> None
+# 处理函数签名：(state, player, item_actor, item_value) -> None
 item_effect_registry: Registry[ItemType] = Registry("item_effect")
 
 

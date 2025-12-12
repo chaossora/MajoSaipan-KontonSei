@@ -97,7 +97,7 @@ def _advance_phase(
     # 检查是否为最终阶段
     boss_state.current_phase_index += 1
     if boss_state.current_phase_index >= len(boss_state.phases):
-        # Boss 击破
+        # Boss 被击破
         actor.add(EnemyJustDied(by_player_bullet=True))
         return
 

@@ -37,7 +37,7 @@ from model.systems.bullet_motion_system import bullet_motion_system
 from model.stages.stage1 import setup_stage1
 from model.enemies import spawn_fairy_small, spawn_fairy_large, spawn_midboss
 
-# 导入 bosses 模块以注册 Boss 工厂函数
+# 导入 bosses 模块以注册 Boss 工厂函数到注册表
 import model.bosses
 
 from view.assets import Assets
@@ -89,7 +89,7 @@ class GameController:
         # 初始化第一关时间线
         setup_stage1(self.state)
 
-        # 生成一些测试用掉落物
+        # 生成测试用掉落物
         spawn_item(
             self.state,
             x=screen_width / 2 - 40,
@@ -104,7 +104,7 @@ class GameController:
         )
 
     def _poll_input(self) -> dict[str, bool]:
-        """返回当前帧的按键状态。"""
+        """获取当前帧的按键状态。"""
         state = {
             "left": False,
             "right": False,
@@ -131,7 +131,7 @@ class GameController:
         return state
 
     def _write_input_component(self, key_state: dict[str, bool]) -> None:
-        """将输入写入玩家的 InputState 组件，并计算边缘事件。"""
+        """将输入写入玩家的 InputState 组件，并计算按键边缘事件。"""
         player = self.state.get_player()
         if not player:
             return
@@ -162,62 +162,62 @@ class GameController:
             key_state = self._poll_input()
             self._write_input_component(key_state)
 
-            # 1. 玩家移动 / 子机 / 射击 / 敌人射击
+            # 1. 玩家移动、子机、射击、敌人射击
             player_move_system(self.state, dt)
-            option_system(self.state, dt)  # 子机位置更新（在移动后、射击前）
+            option_system(self.state, dt)  # 子机位置更新：在移动后、射击前
             player_shoot_system(self.state, dt)
             enemy_shoot_system(self.state, dt)
-            delayed_bullet_system(self.state, dt)  # 处理延迟子弹队列
+            delayed_bullet_system(self.state, dt)  # 延迟子弹队列处理
 
-            # PoC 系统：更新点收集激活标记
+            # PoC 系统：更新点收集线激活标记
             poc_system(self.state)
 
             gravity_system(self.state, dt)
             item_autocollect_system(self.state, dt)
             stage_system(self.state, dt)
 
-            # Boss 移动（在普通移动前）
+            # Boss 移动系统（在普通移动前）
             boss_movement_system(self.state, dt)
 
             # 2. 所有物体移动
             movement_system(self.state, dt)
 
-            # 2.1 子弹运动状态机：处理 BulletMotion 组件的阶段切换
+            # 2.1 子弹运动状态机：处理运动阶段切换
             bullet_motion_system(self.state, dt)
 
-            # 2.5 边界处理：玩家限制在屏幕内，子弹出界清理
+            # 2.5 边界处理：限制玩家在屏幕内，清理出界子弹
             boundary_system(self.state)
 
-            # 2.6 生命周期：删除过期实体
+            # 2.6 生命周期系统：删除过期实体
             lifetime_system(self.state, dt)
 
-            # 3. 碰撞检测 + 事件
+            # 3. 碰撞检测与事件处理
             collision_detection_system(self.state)
             collision_damage_system(self.state, dt)
 
-            # Boss 阶段系统（检测 HP 耗尽或超时，处理阶段转换）
+            # Boss 阶段系统：检测血量耗尽或超时，处理阶段转换
             boss_phase_system(self.state, dt)
 
             bomb_hit_system(self.state, dt)
             graze_system(self.state, dt)
-            graze_energy_system(self.state, dt)  # 擦弹能量系统：累积能量、触发增强
+            graze_energy_system(self.state, dt)  # 擦弹能量系统：累积能量，触发增强
             item_pickup_system(self.state, dt)
 
-            # 4. 玩家受伤系统：处理死亡窗口
+            # 4. 玩家受伤系统：处理死亡炸弹窗口
             player_damage_system(self.state, dt)
 
             # 5. 炸弹系统
             bomb_system(self.state, dt)
 
-            # 5.5 敌人死亡系统
+            # 5.5 敌人死亡系统：处理掉落和清理
             enemy_death_system(self.state, dt)
 
             # 5.6 玩家重生闪烁效果
             player_respawn_visual_system(self.state, dt)
 
-            # 6. 渲染前更新 HUD / 统计
+            # 6. 渲染前更新 HUD 和统计数据
             render_hint_system(self.state)
-            boss_hud_system(self.state, dt)  # Boss HUD 数据聚合
+            boss_hud_system(self.state, dt)  # Boss HUD 数据聚合更新
             hud_data_system(self.state)
             stats_system(self.state)
 

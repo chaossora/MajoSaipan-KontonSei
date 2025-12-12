@@ -10,7 +10,7 @@ class CollectConfig:
     poc_line_ratio: float = 0.25       # PoC 线高度占画面高度比例
     pickup_radius: float = 28.0        # 捡道具判定半径
 
-    # PoC 吸附配置
+    # 点收集线吸附配置
     poc_magnet_speed: float = 500.0    # PoC 吸附速度（原 magnet_speed）
 
     # 范围吸附配置（新增）
@@ -22,7 +22,7 @@ class CollectConfig:
 
     # 点数道具的高度区间得分
     # 底部附近 = point_score_min
-    # PoC 线（及以上） = point_score_max
+    # 点收集线及以上 = point_score_max
     # 中间线性插值
     point_score_min: int = 1000
     point_score_max: int = 1500        # 1500 ≈ 1000 * 1.5，模仿 EoSD 线上 150k vs 线下 100k 的比例

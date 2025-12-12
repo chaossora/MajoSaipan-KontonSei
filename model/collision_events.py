@@ -53,7 +53,7 @@ class PlayerGrazeEnemyBullet:
     bullet: Actor
 
 
-# 以后可以在这里继续添加道具拾取/擦弹等事件：
+# 以后可以在这里继续添加其他事件类型：
 # @dataclass
 # class PlayerEnterTrigger: ...
 

@@ -1,6 +1,6 @@
 # model/systems/__init__.py
 """
-ECS systems layer exports.
+ECS 系统层导出。
 
 Systems by category:
 - Input/Movement: player_movement, movement, boundary_system
@@ -32,7 +32,7 @@ from .item_autocollect import item_autocollect_system
 from .poc_system import poc_system
 from .stage_system import stage_system
 
-# New systems
+# 新增系统
 from .boundary_system import boundary_system
 from .render_hint_system import render_hint_system
 from .hud_data_system import hud_data_system

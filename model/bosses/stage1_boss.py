@@ -1,6 +1,6 @@
 # model/bosses/stage1_boss.py
 """
-Stage 1 Boss 工厂函数。
+第一关 Boss 工厂函数。
 使用纯组件组合方式定义 Boss（类似 spawn_fairy_small 模式）。
 现在支持 pattern_combinators 实现更丰富的弹幕时序。
 """

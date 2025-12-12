@@ -74,7 +74,7 @@ class StageEvent:
     time: float
     type: StageEventType
 
-    # SPAWN_WAVE 专用字段（对于 SPAWN_BOSS 可选）
+    # SPAWN_WAVE 事件专用字段（SPAWN_BOSS 可选）
     enemy_kind: Optional[EnemyKind] = None
     pattern: Optional[WavePattern] = None
     count: int = 0
@@ -93,8 +93,8 @@ class StageEvent:
 
     path_name: str = ""   # 这波敌人使用哪条移动路径（可选）
 
-    # SPAWN_BOSS 专用字段
-    boss_id: str = ""     # Boss 工厂函数名（用于 boss_registry）
+    # SPAWN_BOSS 事件专用字段
+    boss_id: str = ""     # Boss 工厂函数名（用于 boss_registry 查找）
 
     description: str = ""
 

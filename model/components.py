@@ -400,7 +400,7 @@ class BossState:
     drop_life: int = 0
     drop_bomb: int = 0
 
-    # Bomb 抗性配置（东方风格）
+    # Bomb 抗性配置（东方风格机制）
     bomb_damage_cap: int = 1              # 每帧最大 Bomb 伤害
     bomb_spell_immune: bool = False        # 符卡期间是否完全免疫 Bomb
 

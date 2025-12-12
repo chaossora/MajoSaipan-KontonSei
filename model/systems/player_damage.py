@@ -45,22 +45,22 @@ def player_damage_system(
     if not dmg.pending_death:
         return
 
-    # death window 中：按 X -> 取消本次死亡（不在这里判断炸弹库存）
+    # 死亡窗口中：按 X 取消本次死亡（不在此处判断炸弹库存）
     if inp.bomb_pressed and dmg.deathbomb_timer > 0.0:
         dmg.pending_death = False
         dmg.deathbomb_timer = 0.0
         return
 
-    # 窗口结束：真正掉命
+    # 窗口结束：执行掉命
     if dmg.deathbomb_timer <= 0.0:
         dmg.pending_death = False
         life.lives -= 1
 
         if life.lives > 0:
-            # 掉命后无敌一段时间
+            # 掉命后进入无敌状态
             dmg.invincible_timer = 2.0
-            # 执行死亡效果：清弹、清敌、重生
+            # 执行死亡效果：清除敌弹、清除敌人、重生
             apply_death_effect(state, player)
         else:
-            # 玩家命数用尽，标记游戏结束
+            # 玩家残机用尽，标记游戏结束
             state.game_over = True
