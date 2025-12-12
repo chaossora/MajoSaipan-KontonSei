@@ -355,7 +355,7 @@ class Renderer:
 
         # 3. 生命值 (红粉)
         draw_text_outline("LIVES", (255, 100, 150), y)
-        y += 24
+        y += 34 # 增加 Label 和 图标 之间的间距
         
         icon_active = self.assets.get_image("icon_life_active")
         icon_empty = self.assets.get_image("icon_life_empty")
@@ -381,20 +381,48 @@ class Renderer:
             draw_text_outline(text, color, y)
             y += line_h
 
-        # 调试统计
+        # 调试统计 (E/EB)
         s = state.entity_stats
+        y += 12
         debug_surf = self.font_small.render(f"E:{s.enemies} EB:{s.enemy_bullets}", True, (100, 100, 100))
-        self.screen.blit(debug_surf, (x, y + 20))
+        self.screen.blit(debug_surf, (x, y))
+
+        # Boss Info (移至侧边栏 - Debug 下方)
+        boss_hud = None
+        # 简单查找是否有可见的 BossHudData
+        # 注意：这里假设已导入 BossHudData，参考 _render_boss_hud 应该没问题
+        for actor in state.actors:
+            h = actor.get(BossHudData)
+            if h and h.visible:
+                boss_hud = h
+                break
+        
+        if boss_hud:
+            y += 30
+            draw_text_outline("=== BOSS ===", (255, 100, 100), y)
+            y += 32
+            draw_text_outline(boss_hud.boss_name, (255, 200, 200), y)
+            
+            # 符卡名
+            if boss_hud.is_spell_card and boss_hud.spell_name:
+                y += 32
+                draw_text_outline(boss_hud.spell_name, (255, 100, 255), y)
+
+            y += 32
+            # 时间变红警告
+            time_color = (255, 50, 50) if boss_hud.timer_seconds < 10 else (255, 255, 255)
+            draw_text_outline(f"TIME {int(boss_hud.timer_seconds):02d}", time_color, y)
+            y += 10
 
         # 绘制擦弹能量条
         self._render_graze_energy_bar(state, hud, y)
 
     def _render_graze_energy_bar(self, state: GameState, hud: HudData, start_y: int) -> None:
         """绘制擦弹能量条。"""
-        bar_x = state.width + 20
-        bar_y = start_y + 10
-        bar_width = 120
-        bar_height = 10
+        bar_x = 20
+        bar_y = state.height - 25
+        bar_width = 160
+        bar_height = 8
 
         # 背景
         pygame.draw.rect(
@@ -433,18 +461,8 @@ class Renderer:
             (bar_x, bar_y, bar_width, bar_height),
             1,
         )
-
-        # 绘制标签
-        if hud.is_enhanced:
-            label = "ENHANCED!"
-            label_color = (255, 220, 100)
-        else:
-            percent = int(100 * hud.graze_energy / hud.max_graze_energy) if hud.max_graze_energy > 0 else 0
-            label = f"ENERGY {percent}%"
-            label_color = (200, 200, 200)
-
-        label_surf = self.font_small.render(label, True, label_color)
-        self.screen.blit(label_surf, (bar_x + bar_width + 8, bar_y - 1))
+        
+        # Removed label drawing as requested
 
     def _draw_graze_field(self, pos: Position, radius: float) -> None:
         """绘制擦弹半径覆盖层。"""
@@ -515,69 +533,41 @@ class Renderer:
         screen_w = state.width
 
         # ====== 绘制血条（顶部中央） ======
-        bar_width = 280
-        bar_height = 8
+        # ====== 绘制血条（顶部中央） ======
+        bg = self.assets.get_image("ui_boss_hp_bg")
+        fill = self.assets.get_image("ui_boss_hp_fill")
+        frame = self.assets.get_image("ui_boss_hp_frame")
+        
+        bar_width = bg.get_width()
+        bar_height = bg.get_height()
         bar_x = (screen_w - bar_width) // 2
-        bar_y = 24
+        bar_y = 10
 
-        # 绘制背景
-        pygame.draw.rect(
-            self.screen,
-            (60, 60, 60),
-            (bar_x, bar_y, bar_width, bar_height),
-        )
-        # 绘制血量填充
-        fill_width = int(bar_width * boss_hud.hp_ratio)
-        bar_color = (255, 100, 100) if not boss_hud.is_spell_card else (255, 180, 100)
-        pygame.draw.rect(
-            self.screen,
-            bar_color,
-            (bar_x, bar_y, fill_width, bar_height),
-        )
-        # 边框
-        pygame.draw.rect(
-            self.screen,
-            (200, 200, 200),
-            (bar_x, bar_y, bar_width, bar_height),
-            1,
-        )
+        # 1. Background
+        self.screen.blit(bg, (bar_x, bar_y))
 
-        # ====== 绘制剩余阶段星星 ======
-        star_x = bar_x + bar_width + 8
+        # 2. Fill (根据血量比例裁剪)
+        if boss_hud.hp_ratio > 0:
+            fill_width = int(bar_width * boss_hud.hp_ratio)
+            if fill_width > 0:
+                self.screen.blit(fill, (bar_x, bar_y), (0, 0, fill_width, bar_height))
+
+        # 3. Frame
+        self.screen.blit(frame, (bar_x, bar_y))
+
+        # ====== 绘制剩余阶段图标 ======
+        life_icon = self.assets.get_image("ui_boss_life_icon")
+        
+        # 间距与位置
+        spacing = 20
+        star_x = bar_x + bar_width + 12
+        star_cy = bar_y + bar_height // 2 - 6 # 再往上移一点点
+        
         for i in range(boss_hud.phases_remaining):
-            pygame.draw.circle(
-                self.screen,
-                (255, 255, 200),
-                (star_x + i * 14, bar_y + 4),
-                5,
-            )
-            pygame.draw.circle(
-                self.screen,
-                (255, 255, 255),
-                (star_x + i * 14, bar_y + 4),
-                5,
-                1,
-            )
+            center_x = star_x + i * spacing
+            rect = life_icon.get_rect(center=(center_x, star_cy))
+            self.screen.blit(life_icon, rect)
 
-        # ====== 绘制计时器（血条左侧） ======
-        timer_text = f"{int(boss_hud.timer_seconds):02d}"
-        timer_surf = self.font_small.render(timer_text, True, (255, 255, 255))
-        self.screen.blit(timer_surf, (bar_x - 28, bar_y - 2))
+        # Removed Timer and Boss Name from here (Moved to Sidebar)
 
-        # ====== 绘制 Boss 名称 ======
-        name_surf = self.font_small.render(boss_hud.boss_name, True, (255, 255, 255))
-        self.screen.blit(name_surf, (bar_x, bar_y - 16))
-
-        # ====== 绘制符卡名（右上角） ======
-        if boss_hud.is_spell_card and boss_hud.spell_name:
-            # 符卡名颜色：有奖励资格时为亮色，无则为暗色
-            spell_color = (255, 200, 200) if boss_hud.spell_bonus_available else (150, 150, 150)
-            spell_surf = self.font_small.render(boss_hud.spell_name, True, spell_color)
-            spell_x = screen_w - spell_surf.get_width() - 10
-            self.screen.blit(spell_surf, (spell_x, 50))
-
-            # 绘制符卡奖励分数
-            if boss_hud.spell_bonus_available:
-                bonus_text = f"Bonus: {boss_hud.spell_bonus}"
-                bonus_surf = self.font_small.render(bonus_text, True, (200, 200, 150))
-                self.screen.blit(bonus_surf, (spell_x, 68))
+        # Removed Spell Card Name/Bonus from here (Moved to Sidebar)

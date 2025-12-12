@@ -131,8 +131,8 @@ def _reimu_a() -> CharacterPreset:
             option_shot_kind=OptionShotKind.REIMU_STYLE,
         ),
         sprite_name="player_reimu",
-        sprite_offset_x=-27,
-        sprite_offset_y=-40,
+        sprite_offset_x=-24, # 48/2
+        sprite_offset_y=-36, # 72/2
     )
 
 
@@ -185,8 +185,8 @@ def _marisa_a() -> CharacterPreset:
             option_shot_kind=OptionShotKind.MARISA_STYLE,
         ),
         sprite_name="player_marisa",
-        sprite_offset_x=-27,
-        sprite_offset_y=-40,
+        sprite_offset_x=-24, # 48/2
+        sprite_offset_y=-36, # 72/2
     )
 
 
