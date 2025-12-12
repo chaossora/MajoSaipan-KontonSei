@@ -86,8 +86,9 @@ class PlayerBulletKind(Enum):
     """
     MAIN_NORMAL = auto()      # 主机普通弹
     MAIN_ENHANCED = auto()    # 主机增强弹
-    OPTION_NORMAL = auto()    # 子机普通弹
-    OPTION_ENHANCED = auto()  # 子机增强弹
+    OPTION_NORMAL = auto()    # 子机普通弹（非追踪）
+    OPTION_ENHANCED = auto()  # 子机增强弹（非追踪）
+    OPTION_TRACKING = auto()  # 子机追踪弹（Focus模式）
 
 
 @dataclass
