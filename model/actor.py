@@ -31,3 +31,8 @@ class Actor:
     def has(self, comp_type: Type) -> bool:
         """检查实体是否拥有指定类型的组件"""
         return comp_type in self._components
+
+    def remove(self, comp_type: Type) -> None:
+        """移除指定类型的组件"""
+        if comp_type in self._components:
+            del self._components[comp_type]

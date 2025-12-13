@@ -53,6 +53,10 @@ def bomb_system(
     if bomb.bombs <= 0:
         return
 
+    # 炸弹正在持续中，不能再次使用
+    if bomb.active:
+        return
+
     # 组件缺失时回退到全局配置
     if bomb_cfg is None:
         from ..game_config import BombConfig
@@ -67,6 +71,7 @@ def bomb_system(
 
     # 消耗一个炸弹
     bomb.bombs -= 1
+    bomb.active = True  # 标记炸弹激活
 
     # 应用无敌时间
     dmg.invincible_timer = max(dmg.invincible_timer, bomb_cfg.invincible_time)

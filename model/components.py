@@ -75,6 +75,13 @@ class Bullet:
 
 
 @dataclass
+class HomingBullet:
+    """追踪子弹组件（ECS纯数据）：子弹会持续追踪最近的敌人。"""
+    turn_rate: float = 360.0  # 每秒转向角度（度）
+    speed: float = 400.0      # 追踪速度（会覆盖原速度大小）
+
+
+@dataclass
 class BulletGrazeState:
     """敌弹是否已被擦过一次。"""
     grazed: bool = False
@@ -132,6 +139,11 @@ class BombConfigData:
     beam_length: float = 600.0
     effect_sprite: str = "bomb_field"
     damage: int = 9999  # 每帧伤害（对普通敌人相当于秒杀）
+    # CONVERT 炸弹专用配置
+    convert_speed: float = 350.0       # 转换后子弹追踪速度
+    convert_turn_rate: float = 360.0   # 转换后子弹转向速率（度/秒）
+    convert_damage: int = 5            # 转换后子弹伤害
+    convert_lifetime: float = 10.0      # 转换后子弹生命周期
 
 
 # ====== 敌人射击组件 ======
@@ -189,6 +201,7 @@ class PlayerLife:
 class PlayerBomb:
     bombs: int
     max_bombs: int
+    active: bool = False  # 炸弹是否正在持续中
 
 
 @dataclass

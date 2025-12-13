@@ -37,6 +37,7 @@ from model.systems.boss_movement_system import boss_movement_system
 from model.systems.boss_hud_system import boss_hud_system
 from model.systems.task_system import task_system
 from model.systems.motion_program_system import motion_program_system
+from model.systems.homing_bullet_system import homing_bullet_system
 from model.stages.stage1 import setup_stage1
 from model.enemies import spawn_fairy_small, spawn_fairy_large, spawn_midboss
 from model.scripting.archetype import register_default_archetypes
@@ -191,6 +192,9 @@ class GameController:
         # 1.5 MotionSystem: 更新子弹 MotionProgram，修改 Velocity
         # Requirements 8.2: MotionSystem 在 movement_system 之前执行
         motion_program_system(self.state, dt)
+
+        # 1.6 追踪子弹系统：更新 HomingBullet 速度方向
+        homing_bullet_system(self.state, dt)
 
         # 2. 所有物体移动
         movement_system(self.state, dt)
