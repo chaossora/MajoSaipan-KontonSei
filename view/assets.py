@@ -13,7 +13,7 @@ class Assets:
 
     def __init__(self) -> None:
         self.images: dict[str, pygame.Surface] = {}
-        self.font_path = "assets/fonts/PixelifySans-Black.ttf"
+        self.font_path = "assets/fonts/DotGothic16-Regular.ttf"
 
     def load(self) -> None:
         # Load Character Sprite Sheet
@@ -29,8 +29,8 @@ class Assets:
             cell_height = 1536 // 3
             
             # Scale down to reasonable game size
-            # height 512 -> 80 (approx 1/6.4) - Middle ground size
-            target_height = 80
+            # height 512 -> 72 (approx 1/7.1) - Smaller size
+            target_height = 72
             scale_ratio = target_height / cell_height
             target_width = int(cell_width * scale_ratio)
 
@@ -201,6 +201,82 @@ class Assets:
             le = pygame.Surface((24, 24), pygame.SRCALPHA)
             pygame.draw.circle(le, (100, 100, 100), (12, 12), 10)
             self.images["icon_life_empty"] = le
+
+        # ====== Boss HP Bar ======
+        try:
+            # Target Size: 360x28 (Height increased)
+            hp_w, hp_h = 360, 28
+            
+            # BG
+            bg_src = pygame.image.load("assets/ui/boss_hp_bg.png").convert_alpha()
+            self.images["ui_boss_hp_bg"] = pygame.transform.smoothscale(bg_src, (hp_w, hp_h))
+            
+            # Fill
+            fill_src = pygame.image.load("assets/ui/boss_hp_fill.png").convert_alpha()
+            self.images["ui_boss_hp_fill"] = pygame.transform.smoothscale(fill_src, (hp_w, hp_h))
+            
+            # Frame
+            frame_src = pygame.image.load("assets/ui/boss_hp_frame.png").convert_alpha()
+            self.images["ui_boss_hp_frame"] = pygame.transform.smoothscale(frame_src, (hp_w, hp_h))
+            
+        except (FileNotFoundError, pygame.error):
+            # Fallback will be handled by renderer using shape drawing logic 
+            # or created here. Let's create placeholders.
+            placeholder_w, placeholder_h = 360, 28
+            
+            p_bg = pygame.Surface((placeholder_w, placeholder_h))
+            p_bg.fill((50, 0, 0))
+            self.images["ui_boss_hp_bg"] = p_bg
+
+            p_fill = pygame.Surface((placeholder_w, placeholder_h))
+            p_fill.fill((255, 50, 50))
+            self.images["ui_boss_hp_fill"] = p_fill
+
+            p_frame = pygame.Surface((placeholder_w, placeholder_h), pygame.SRCALPHA)
+            pygame.draw.rect(p_frame, (255, 255, 255), (0, 0, placeholder_w, placeholder_h), 2)
+            self.images["ui_boss_hp_frame"] = p_frame
+
+        # ====== Boss Life (Phase) Icon ======
+        try:
+            # Target Size: 16x16
+            life_icon = pygame.image.load("assets/ui/boss_life_icon.png").convert_alpha()
+            self.images["ui_boss_life_icon"] = pygame.transform.smoothscale(life_icon, (16, 16))
+        except (FileNotFoundError, pygame.error):
+            # Fallback: Yellow Circle
+            surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (255, 255, 200), (8, 8), 6)
+            pygame.draw.circle(surf, (255, 255, 255), (8, 8), 6, 1)
+            self.images["ui_boss_life_icon"] = surf
+
+        # ====== Status Title ======
+        try:
+            st_img = pygame.image.load("assets/ui/ui_status_title.png").convert_alpha()
+            # Scale proportionally to Width 160
+            current_w, current_h = st_img.get_size()
+            target_w = 160
+            ratio = target_w / current_w
+            target_h = int(current_h * ratio)
+            self.images["ui_status_title"] = pygame.transform.smoothscale(st_img, (target_w, target_h))
+        except (FileNotFoundError, pygame.error):
+            # Fallback placeholder (160x40)
+            surf = pygame.Surface((160, 40), pygame.SRCALPHA)
+            pygame.draw.rect(surf, (100, 100, 255), (0,0,160,40), 2)
+            self.images["ui_status_title"] = surf
+
+        # ====== Boss Title ======
+        try:
+            bt_img = pygame.image.load("assets/ui/ui_boss_title.png").convert_alpha()
+            # Scale proportionally to Width 160
+            current_w, current_h = bt_img.get_size()
+            target_w = 160
+            ratio = target_w / current_w
+            target_h = int(current_h * ratio)
+            self.images["ui_boss_title"] = pygame.transform.smoothscale(bt_img, (target_w, target_h))
+        except (FileNotFoundError, pygame.error):
+            # Fallback placeholder (160x40)
+            surf = pygame.Surface((160, 40), pygame.SRCALPHA)
+            pygame.draw.rect(surf, (255, 100, 100), (0,0,160,40), 2)
+            self.images["ui_boss_title"] = surf
 
         # 3. Option Tracking Bullet (Unique)
         try:
