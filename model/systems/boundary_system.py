@@ -13,17 +13,25 @@ def boundary_system(state: GameState) -> None:
 
     职责：处理实体与世界边界的交互，从movement_system中分离出来，
     遵循单一职责原则。
+    
+    优化：使用反向遍历和 del 删除，避免创建临时列表。
+    保持列表顺序以确保确定性（Requirements 13.6）。
+    Requirements 14.1: 提供迭代器接口避免创建临时列表
     """
     world_w = state.width
     world_h = state.height
     cfg: BoundaryConfig = state.get_resource(BoundaryConfig)  # type: ignore
     out_buffer = cfg.out_buffer if cfg else 32.0
 
-    to_remove = []
-
-    for actor in state.actors:
+    # 反向遍历，允许原地删除而不影响遍历顺序
+    # 使用 del 保持列表顺序（O(n) 但保证确定性）
+    i = len(state.actors) - 1
+    while i >= 0:
+        actor = state.actors[i]
         pos = actor.get(Position)
-        if not pos:
+        
+        if pos is None:
+            i -= 1
             continue
 
         # 玩家边界限制
@@ -43,8 +51,6 @@ def boundary_system(state: GameState) -> None:
                 or pos.y < -out_buffer
                 or pos.y > world_h + out_buffer
             ):
-                to_remove.append(actor)
-
-    # 统一删除出界子弹，避免在遍历中修改列表
-    for actor in to_remove:
-        state.remove_actor(actor)
+                del state.actors[i]
+        
+        i -= 1

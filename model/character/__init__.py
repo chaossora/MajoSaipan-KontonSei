@@ -102,7 +102,7 @@ def _reimu_a() -> CharacterPreset:
             offsets_focus=[-4.0, 4.0],                # 2发模式
             # 增强模式
             enhanced_cooldown_multiplier=1.2,  # 射速加快 (间隔x1.2，产生重叠)
-            enhanced_damage_multiplier=3,
+            enhanced_damage_multiplier=10,
             enhanced_speed_multiplier=2.5,
             # 改为单发大子弹
             offsets_spread_enhanced=[0.0],

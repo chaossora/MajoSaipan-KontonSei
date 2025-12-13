@@ -13,7 +13,7 @@ from typing import List, Optional
 from pygame.math import Vector2
 
 from .registry import Registry
-from .bullet_patterns import ShotData
+from .player_shot_patterns import ShotData
 
 
 class OptionShotKind(Enum):
