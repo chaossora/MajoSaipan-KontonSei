@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from random import Random
+from typing import Callable, Generator, Optional
+
 from pygame.math import Vector2
 
 from .actor import Actor
@@ -8,19 +11,78 @@ from .registry import Registry
 from .components import (
     Position, Velocity, Collider,
     CollisionLayer, Health,
-    EnemyTag, EnemyShootingV2,
+    EnemyTag,
     EnemyDropConfig, EnemyKind, EnemyKindTag,
 )
-from .bullet_patterns import BulletPatternConfig, BulletPatternKind, PatternState
 
 # 敌人工厂注册表：使用装饰器自动注册 EnemyKind → spawn 函数
 enemy_registry: Registry[EnemyKind] = Registry("enemy")
 
 
+def _attach_behavior(
+    state: GameState,
+    enemy: Actor,
+    behavior: Callable[..., Generator[int, None, None]],
+    rng: Optional[Random] = None,
+) -> None:
+    """
+    Attach a behavior Task to an enemy.
+    
+    This helper function adds a TaskRunner to the enemy and starts
+    the behavior Task.
+    
+    Args:
+        state: GameState reference
+        enemy: The enemy Actor to attach behavior to
+        behavior: Task generator function for enemy behavior
+        rng: Optional RNG for determinism (creates new one if None)
+    
+    **Requirements: 12.1**
+    """
+    from model.scripting.task import TaskRunner
+    from model.scripting.context import TaskContext
+    
+    # Add TaskRunner component if not present
+    runner = enemy.get(TaskRunner)
+    if runner is None:
+        runner = TaskRunner()
+        enemy.add(runner)
+    
+    # Create context for the enemy's behavior
+    enemy_ctx = TaskContext(
+        state=state,
+        owner=enemy,
+        rng=rng if rng is not None else Random(),
+    )
+    
+    # Start the behavior task
+    runner.start_task(behavior, enemy_ctx)
+
+
 @enemy_registry.register(EnemyKind.FAIRY_SMALL)
-def spawn_fairy_small(state: GameState, x: float, y: float, hp: int = 5) -> Actor:
+def spawn_fairy_small(
+    state: GameState,
+    x: float,
+    y: float,
+    hp: int = 5,
+    behavior: Optional[Callable[..., Generator[int, None, None]]] = None,
+    rng: Optional[Random] = None,
+) -> Actor:
     """
     小妖精：少量 HP，低掉落
+    
+    Args:
+        state: GameState reference
+        x: X position to spawn
+        y: Y position to spawn
+        hp: Hit points (default 5)
+        behavior: Optional Task generator function for enemy behavior
+        rng: Optional RNG for determinism
+    
+    Returns:
+        The created enemy Actor
+    
+    **Requirements: 12.1**
     """
     enemy = Actor()
 
@@ -36,15 +98,6 @@ def spawn_fairy_small(state: GameState, x: float, y: float, hp: int = 5) -> Acto
         mask=CollisionLayer.PLAYER_BULLET,
     ))
 
-    enemy.add(EnemyShootingV2(
-        cooldown=1.2,
-        pattern=BulletPatternConfig(
-            kind=BulletPatternKind.AIM_PLAYER,
-            bullet_speed=220.0,
-            damage=1,
-        ),
-    ))
-
     # 小妖精：通常只掉 1 个 Power
     enemy.add(EnemyDropConfig(
         power_count=1,
@@ -53,13 +106,38 @@ def spawn_fairy_small(state: GameState, x: float, y: float, hp: int = 5) -> Acto
     ))
 
     state.add_actor(enemy)
+    
+    # Attach behavior Task if provided
+    if behavior is not None:
+        _attach_behavior(state, enemy, behavior, rng)
+    
     return enemy
 
 
 @enemy_registry.register(EnemyKind.FAIRY_LARGE)
-def spawn_fairy_large(state: GameState, x: float, y: float, hp: int = 15) -> Actor:
+def spawn_fairy_large(
+    state: GameState,
+    x: float,
+    y: float,
+    hp: int = 15,
+    behavior: Optional[Callable[..., Generator[int, None, None]]] = None,
+    rng: Optional[Random] = None,
+) -> Actor:
     """
     大妖精 / 强杂鱼：更多 HP + 更多掉落
+    
+    Args:
+        state: GameState reference
+        x: X position to spawn
+        y: Y position to spawn
+        hp: Hit points (default 15)
+        behavior: Optional Task generator function for enemy behavior
+        rng: Optional RNG for determinism
+    
+    Returns:
+        The created enemy Actor
+    
+    **Requirements: 12.1**
     """
     enemy = Actor()
 
@@ -75,15 +153,6 @@ def spawn_fairy_large(state: GameState, x: float, y: float, hp: int = 15) -> Act
         mask=CollisionLayer.PLAYER_BULLET,
     ))
 
-    enemy.add(EnemyShootingV2(
-        cooldown=0.8,
-        pattern=BulletPatternConfig(
-            kind=BulletPatternKind.AIM_PLAYER,
-            bullet_speed=260.0,
-            damage=1,
-        ),
-    ))
-
     # 大妖精：掉落更多 Power 和 Point
     enemy.add(EnemyDropConfig(
         power_count=3,
@@ -92,13 +161,38 @@ def spawn_fairy_large(state: GameState, x: float, y: float, hp: int = 15) -> Act
     ))
 
     state.add_actor(enemy)
+    
+    # Attach behavior Task if provided
+    if behavior is not None:
+        _attach_behavior(state, enemy, behavior, rng)
+    
     return enemy
 
 
 @enemy_registry.register(EnemyKind.MIDBOSS)
-def spawn_midboss(state: GameState, x: float, y: float, hp: int = 80) -> Actor:
+def spawn_midboss(
+    state: GameState,
+    x: float,
+    y: float,
+    hp: int = 80,
+    behavior: Optional[Callable[..., Generator[int, None, None]]] = None,
+    rng: Optional[Random] = None,
+) -> Actor:
     """
     小 Boss 模板：高 HP + 大掉落
+    
+    Args:
+        state: GameState reference
+        x: X position to spawn
+        y: Y position to spawn
+        hp: Hit points (default 80)
+        behavior: Optional Task generator function for enemy behavior
+        rng: Optional RNG for determinism
+    
+    Returns:
+        The created enemy Actor
+    
+    **Requirements: 12.1**
     """
     enemy = Actor()
 
@@ -123,4 +217,9 @@ def spawn_midboss(state: GameState, x: float, y: float, hp: int = 80) -> Actor:
     ))
 
     state.add_actor(enemy)
+    
+    # Attach behavior Task if provided
+    if behavior is not None:
+        _attach_behavior(state, enemy, behavior, rng)
+    
     return enemy

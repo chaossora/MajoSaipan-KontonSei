@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntFlag, Enum, auto
-from typing import List
+from typing import List, Optional, Callable, Generator, Any
 
 from pygame.math import Vector2
 
@@ -370,6 +370,13 @@ class BossPhase:
     """
     单个 Boss 阶段定义（纯数据）。
     存储在 BossState.phases 列表中。
+    
+    The `task` field stores a Task generator function that controls the
+    phase's bullet patterns and behavior. When the phase starts, the
+    boss_phase_system will start this Task. When the phase ends (HP depleted
+    or timeout), the Task will be terminated.
+    
+    Requirements: 11.1
     """
     phase_type: PhaseType
     hp: int                                # 该阶段血量
@@ -378,6 +385,9 @@ class BossPhase:
     spell_bonus: int = 0                   # 符卡奖励分数
     damage_multiplier: float = 1.0         # 伤害倍率（<1 表示减伤）
     pattern: object = None                 # BulletPatternConfig（延迟绑定）
+    # Task generator function for this phase (Requirements 11.1)
+    # Signature: Callable[[TaskContext], Generator[int, None, None]]
+    task: Optional[Callable[..., Generator[int, None, None]]] = None
 
 
 @dataclass
@@ -387,6 +397,9 @@ class BossState:
     - 存储所有阶段定义
     - 跟踪当前阶段和计时器
     - HP 由现有 Health 组件管理
+    - Tracks the current phase Task for termination on phase end
+    
+    Requirements: 11.1
     """
     boss_name: str
     phases: List[BossPhase] = field(default_factory=list)
@@ -394,6 +407,11 @@ class BossState:
     phase_timer: float = 0.0               # 当前阶段剩余时间
     phase_transitioning: bool = False      # 正在阶段转换
     transition_timer: float = 0.0
+    phase_initialized: bool = False        # 当前阶段是否已初始化（Task 已启动）
+    
+    # Current phase Task reference (for termination on phase end)
+    # This is set by boss_phase_system when starting a phase Task
+    current_phase_task: Optional[Any] = None  # Task object
 
     # 掉落配置
     drop_power: int = 16
@@ -513,47 +531,4 @@ class OptionTag:
     slot_index: int = 0                    # 槽位索引 (0-3)
 
 
-# ====== 子弹运动状态机组件 ======
 
-class MotionPhaseKind(Enum):
-    """运动阶段类型"""
-    LINEAR = auto()      # 直线运动
-    WAYPOINT = auto()    # 路径点运动
-    HOVER = auto()       # 悬停
-
-
-@dataclass
-class LinearPhase:
-    """直线运动阶段"""
-    kind: MotionPhaseKind = field(default=MotionPhaseKind.LINEAR, repr=False)
-    direction_x: float = 0.0
-    direction_y: float = 1.0
-    speed: float = 150.0
-
-
-@dataclass
-class WaypointPhase:
-    """路径点运动阶段"""
-    kind: MotionPhaseKind = field(default=MotionPhaseKind.WAYPOINT, repr=False)
-    waypoints: List[tuple] = field(default_factory=list)  # [(x, y), ...]
-    speed: float = 150.0
-    arrival_threshold: float = 8.0
-    current_index: int = 0  # 运行时状态
-
-
-@dataclass
-class HoverPhase:
-    """悬停阶段"""
-    kind: MotionPhaseKind = field(default=MotionPhaseKind.HOVER, repr=False)
-    duration: float = 0.5  # 悬停时长
-
-
-@dataclass
-class BulletMotion:
-    """
-    子弹运动状态机组件。
-    存储运动阶段序列，子弹按序列执行各阶段运动。
-    """
-    phases: List[object] = field(default_factory=list)  # List[LinearPhase | WaypointPhase | HoverPhase]
-    current_phase: int = 0
-    phase_timer: float = 0.0  # 用于 HoverPhase 等有时限的阶段

@@ -12,6 +12,7 @@ from ..components import (
     ItemType,
     EnemyKind, EnemyKindTag, BossState,
 )
+from ..scripting.task import TaskRunner
 
 
 def enemy_death_system(state: GameState, dt: float) -> None:
@@ -19,10 +20,13 @@ def enemy_death_system(state: GameState, dt: float) -> None:
     敌人死亡统一处理系统：
     - 查找所有有 EnemyTag + EnemyJustDied 的实体
     - 执行：
+        * 终止行为 Task（Requirements 12.4）
         * 掉落道具（根据 EnemyDropConfig 或 BossState）
         * 加分（以后可以加）
         * 清理相关状态
         * 从 GameState 移除敌人实体
+    
+    **Requirements: 12.4**
     """
     # 收集要删除的敌人，避免在遍历时修改列表
     to_remove = []
@@ -34,6 +38,11 @@ def enemy_death_system(state: GameState, dt: float) -> None:
         death = actor.get(EnemyJustDied)
         if not death:
             continue
+
+        # 0) 终止行为 Task（Requirements 12.4）
+        runner = actor.get(TaskRunner)
+        if runner:
+            runner.terminate_all()
 
         pos = actor.get(Position)
 

@@ -62,9 +62,12 @@ from .game_config import (
 from .collision_events import CollisionEvents
 from .stage import StageState
 from .movement_path import PathLibrary, create_default_path_library
-from .bullet_patterns import BulletPatternConfig, BulletPatternKind
+from .scripting.stage_runner import StageRunner
 from .character import CharacterId, get_character_preset
 from .bomb_handlers import BombType
+
+
+from typing import Iterator
 
 
 @dataclass
@@ -105,6 +108,7 @@ class GameState:
     resources: dict[type, object] = field(default_factory=dict)
 
     stage: Optional[StageState] = None  # 当前关卡时间线
+    stage_runner: Optional[StageRunner] = None  # Task-based stage runner
 
     # 移动路径库
     path_library: PathLibrary = field(default_factory=create_default_path_library)
@@ -148,6 +152,47 @@ class GameState:
 
     def get_resource(self, res_type: type) -> object | None:
         return self.resources.get(res_type)
+
+    # ====== 迭代器接口（避免创建临时列表）======
+    # Requirements 14.1: 提供迭代器接口避免创建临时列表
+
+    def iter_enemies(self) -> Iterator[Actor]:
+        """迭代所有敌人实体（带 EnemyTag 的 Actor）"""
+        for actor in self.actors:
+            if actor.get(EnemyTag):
+                yield actor
+
+    def iter_enemy_bullets(self) -> Iterator[Actor]:
+        """迭代所有敌弹实体（带 EnemyBulletTag 的 Actor）"""
+        for actor in self.actors:
+            if actor.get(EnemyBulletTag):
+                yield actor
+
+    def iter_player_bullets(self) -> Iterator[Actor]:
+        """迭代所有玩家子弹实体（带 PlayerBulletTag 的 Actor）"""
+        for actor in self.actors:
+            if actor.get(PlayerBulletTag):
+                yield actor
+
+    def iter_items(self) -> Iterator[Actor]:
+        """迭代所有道具实体（带 ItemTag 的 Actor）"""
+        for actor in self.actors:
+            if actor.get(ItemTag):
+                yield actor
+
+    def iter_with_components(self, *component_types: type) -> Iterator[Actor]:
+        """
+        迭代所有拥有指定组件的实体。
+        
+        Args:
+            *component_types: 要求实体必须拥有的组件类型
+        
+        Yields:
+            拥有所有指定组件的 Actor
+        """
+        for actor in self.actors:
+            if all(actor.get(ct) is not None for ct in component_types):
+                yield actor
 
 
 # ======= 实体工厂函数 =======

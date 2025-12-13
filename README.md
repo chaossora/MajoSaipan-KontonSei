@@ -87,7 +87,8 @@ python main.py -c MARISA_A
 │       ├── boss_phase_system.py   # Boss 阶段管理
 │       ├── boss_movement_system.py # Boss 移动
 │       ├── boss_hud_system.py     # Boss HUD 数据聚合
-│       ├── stage_system.py        # 关卡时间线推进
+│       ├── task_system.py         # Task 协程系统（关卡/敌人行为脚本）
+│       ├── motion_program_system.py # 子弹运动指令系统
 │       ├── poc_system.py          # PoC 状态计算
 │       ├── gravity.py             # 重力系统
 │       ├── lifetime.py            # 生命周期清理
@@ -132,8 +133,9 @@ enemy_shoot_system          # 敌人射击
 poc_system                  # PoC 状态计算
 gravity_system              # 重力
 item_autocollect_system     # 道具自动吸取
-stage_system                # 关卡时间线推进
     ↓
+task_system                 # Task 协程系统（关卡/敌人行为脚本）
+motion_program_system       # 子弹运动指令系统
 boss_movement_system        # Boss 移动
 movement_system             # 通用位移更新
 boundary_system             # 边界处理
@@ -406,7 +408,21 @@ def spawn_new_boss(state: GameState, x: float, y: float) -> Actor:
 
 ### 添加新关卡
 
-在 `model/stages/` 中创建新文件，定义 `StageEvent` 时间表。
+在 `model/stages/` 中创建新文件，定义 Task 生成器函数作为关卡脚本：
+
+```python
+def stage_script(ctx: TaskContext) -> Generator[int, None, None]:
+    # 生成敌人波次
+    ctx.spawn_enemy(EnemyKind.FAIRY_SMALL, x=100, y=50, behavior=fairy_behavior_1)
+    yield 60  # 等待 60 帧（1 秒）
+    
+    # 等待敌人清空
+    while ctx.enemies_alive() > 0:
+        yield 1
+    
+    # 生成 Boss
+    ctx.spawn_boss("boss_id", x=200, y=100)
+```
 
 ## 调试提示
 

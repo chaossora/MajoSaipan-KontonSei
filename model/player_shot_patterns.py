@@ -14,7 +14,13 @@ from typing import List
 from pygame.math import Vector2
 
 from .registry import Registry
-from .bullet_patterns import ShotData
+
+
+@dataclass
+class ShotData:
+    """单发子弹数据：速度向量 + 可选偏移"""
+    velocity: Vector2 = field(default_factory=lambda: Vector2(0, -400))
+    offset: Vector2 = field(default_factory=lambda: Vector2(0, 0))
 
 
 class PlayerShotPatternKind(Enum):
