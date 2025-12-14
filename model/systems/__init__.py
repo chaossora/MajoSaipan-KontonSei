@@ -37,6 +37,7 @@ from .hud_data_system import hud_data_system
 from .stats_system import stats_system
 from .task_system import task_system
 from .motion_program_system import motion_program_system
+from .homing_bullet_system import homing_bullet_system
 
 __all__ = [
     "movement_system",
@@ -60,4 +61,5 @@ __all__ = [
     "stats_system",
     "task_system",
     "motion_program_system",
+    "homing_bullet_system",
 ]

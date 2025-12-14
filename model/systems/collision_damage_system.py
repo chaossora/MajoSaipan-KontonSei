@@ -8,7 +8,7 @@ from ..components import (
     Health, Bullet,
     PlayerDamageState,
     EnemyJustDied,
-    EnemyKind, EnemyKindTag, SpellCardState, BossState,
+    EnemyKind, EnemyKindTag, SpellCardState,
 )
 from ..collision_events import (
     CollisionEvents,
@@ -61,17 +61,11 @@ def _apply_player_bullet_hits_enemy(ev: PlayerBulletHitEnemy,
     else:
         damage = bullet_data.damage
 
-    # 阶段转换期间不受伤害
-    boss_state = enemy.get(BossState)
-    if boss_state and boss_state.phase_transitioning:
-        to_remove.add(bullet)
-        return
-
     health.hp -= damage
     to_remove.add(bullet)
 
     if health.hp <= 0:
-        # Boss 死亡由 boss_phase_system 处理，此处不添加 EnemyJustDied
+        # Boss 死亡由 Task 脚本处理，此处不添加 EnemyJustDied
         if is_boss:
             return
 

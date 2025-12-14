@@ -1,8 +1,12 @@
 # model/systems/boss_hud_system.py
 """
-Boss HUD 数据聚合系统：
-- 收集 Boss 血量、阶段、符卡名、计时器
-- 写入 BossHudData 供渲染器使用
+Boss HUD 数据聚合系统（纯脚本驱动模式）。
+
+在纯脚本驱动架构中，大部分 HUD 更新由 TaskContext 原语完成：
+- ctx.update_boss_hud(): 更新阶段数、计时器
+- ctx.set_spell_card() / ctx.end_spell_card(): 更新符卡状态
+
+此系统仅负责每帧同步 HP 比例和符卡状态。
 """
 from __future__ import annotations
 
@@ -20,7 +24,10 @@ if TYPE_CHECKING:
 
 def boss_hud_system(state: GameState, dt: float) -> None:
     """
-    Boss HUD 聚合系统：每帧更新 BossHudData 组件。
+    Boss HUD 聚合系统：每帧同步 HP 比例和符卡状态。
+    
+    其他 HUD 字段（phases_remaining, timer_seconds）由脚本通过
+    ctx.update_boss_hud() 直接控制。
     """
     for actor in state.actors:
         # 检查是否为 Boss
@@ -29,25 +36,18 @@ def boss_hud_system(state: GameState, dt: float) -> None:
             continue
 
         hud = actor.get(BossHudData)
-        boss_state = actor.get(BossState)
         health = actor.get(Health)
 
-        if not (hud and boss_state and health):
+        if not hud:
             continue
 
         # 更新血量百分比
-        if health.max_hp > 0:
+        if health and health.max_hp > 0:
             hud.hp_ratio = health.hp / health.max_hp
         else:
             hud.hp_ratio = 0.0
 
-        # 更新剩余阶段数（用于显示星星）
-        hud.phases_remaining = len(boss_state.phases) - boss_state.current_phase_index
-
-        # 更新计时器
-        hud.timer_seconds = max(0.0, boss_state.phase_timer)
-
-        # 更新符卡状态
+        # 同步符卡状态（脚本可能已设置，这里确保一致性）
         spell_state = actor.get(SpellCardState)
         if spell_state:
             hud.is_spell_card = True
@@ -59,6 +59,3 @@ def boss_hud_system(state: GameState, dt: float) -> None:
             hud.spell_name = ""
             hud.spell_bonus = 0
             hud.spell_bonus_available = True
-
-        # 阶段转换期间隐藏 HUD（可选）
-        hud.visible = not boss_state.phase_transitioning

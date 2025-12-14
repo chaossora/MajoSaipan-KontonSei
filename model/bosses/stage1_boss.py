@@ -19,7 +19,7 @@ from model.boss_registry import boss_registry
 from model.components import (
     Position, Velocity, Health, Collider, SpriteInfo,
     CollisionLayer, EnemyTag, EnemyKind, EnemyKindTag,
-    BossState, BossPhase, PhaseType, BossMovementState, BossHudData,
+    BossState, BossHudData,
 )
 from model.scripting.task import TaskRunner
 from model.scripting.patterns import fire_ring, fire_fan
@@ -439,15 +439,23 @@ def _draw_meteor_star(
     """
     辅助函数：一颗一颗画出流星五角星
     
-    关键：yield N 的实际帧间隔是 N+1（因为 wait_frames 在下一帧才开始递减）
-    所以同步公式需要用 frame_gap = draw_interval + 1
+    时序分析：
+    - yield N → 等待 N+1 帧后执行下一步（frame_gap = N+1）
+    - WAIT(M) → M 次 tick 后完成
+    - 子弹创建的同一帧就会被 motion_program_system tick
+    
+    同步策略：
+    - bullet_i 在 frame i*frame_gap 创建
+    - 创建帧就被 tick，所以实际等待 = WAIT值
+    - 所有子弹应在 frame (total-1)*frame_gap 同时开始移动
+    - bullet_i 需要 WAIT((total-1-i)*frame_gap)
     """
     bullets_per_edge = 5
     draw_interval = 2  # yield 的值
     move_speed = 90  # 移动速度
     hold_frames = 120  # 保持形状移动的帧数
     
-    # 关键修正：yield N 的实际帧间隔是 N+1
+    # yield N 的实际帧间隔是 N+1
     frame_gap = draw_interval + 1
     
     vertices = []
@@ -461,10 +469,10 @@ def _draw_meteor_star(
     edge_indices = [(0, 2), (2, 4), (4, 1), (1, 3), (3, 0)]
     total_bullets = 5 * bullets_per_edge
     
-    # 计算同步等待时间
-    # 最后一颗子弹需要 WAIT(1)（不能是0，因为WAIT(0)仍消耗1帧处理）
-    # 所以 total_wait = (total_bullets - 1) * frame_gap + 1
-    total_wait = (total_bullets - 1) * frame_gap + 1
+    # 最后一颗子弹（bullet_24）在 frame 24*3=72 创建
+    # 它只需要 WAIT(1)（至少1，因为WAIT(0)会立即完成但仍消耗1帧）
+    # bullet_i 需要等待 (24-i)*frame_gap + 1 帧
+    # 这样所有子弹在 frame 72 + 1 = 73 同时开始移动
     
     bullet_idx = 0
     for start_idx, end_idx in edge_indices:
@@ -491,10 +499,13 @@ def _draw_meteor_star(
             turn_duration = 25 + int(abs(t - 0.5) * 35)
             
             # 同步等待：早期子弹等待更久，所有子弹同时开始移动
-            wait_for_sync = total_wait - bullet_idx * frame_gap
+            # bullet_i 在 frame i*frame_gap 创建
+            # 所有子弹应在最后一颗创建后开始移动
+            # wait = (total_bullets - 1 - bullet_idx) * frame_gap + 1
+            wait_for_sync = (total_bullets - 1 - bullet_idx) * frame_gap + 1
             
             motion = (MotionBuilder(speed=0, angle=meteor_angle)
-                .wait(wait_for_sync)  # 等待同步
+                .wait(wait_for_sync)  # 等待所有子弹画完
                 .set_speed(move_speed)  # 同时开始移动
                 .wait(hold_frames)  # 保持形状移动
                 .turn_to(final_angle, turn_duration)
@@ -639,17 +650,86 @@ def phase3_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
         yield 50
 
 
+# ============ Boss 主脚本（纯脚本驱动） ============
+
+def stage1_boss_script(ctx: "TaskContext") -> Generator[int, None, None]:
+    """
+    Stage 1 Boss 完整脚本（纯脚本驱动模式）。
+    
+    控制 Boss 的整个战斗流程：
+    - 入场动画
+    - Phase 1: 非符「万华镜」
+    - Phase 2: 符卡「银河涡流」
+    - Phase 3: 符卡「星辰万象」
+    - 结束处理
+    """
+    # 入场：移动到战斗位置
+    ctx.update_boss_hud(phases_remaining=3, timer=30.0)
+    yield from ctx.move_to(ctx.state.width / 2, 120, frames=60)
+    
+    # 移动参数（匹配原 BossMovementState）
+    # idle_time: 1.5-2.5s = 90-150 帧
+    # move_duration: 0.5-0.8s = 30-48 帧
+    # y 范围: y_center=110, y_variation=30 → 80-140
+    move_params = dict(
+        move_interval=(90, 150),
+        move_duration=(30, 48),
+        move_range_x=60.0,
+        move_range_y=(80.0, 140.0),
+    )
+    
+    # === Phase 1: 非符「万华镜」 ===
+    ctx.update_boss_hud(phases_remaining=3)
+    yield from ctx.run_phase(
+        pattern=phase1_nonspell,
+        timeout_seconds=30.0,
+        hp=800,
+        **move_params,
+    )
+    
+    # 阶段转换
+    yield from ctx.phase_transition(frames=60)
+    yield from ctx.move_to(ctx.state.width / 2, 100, frames=30)
+    
+    # === Phase 2: 符卡「银河涡流」 ===
+    ctx.update_boss_hud(phases_remaining=2)
+    yield from ctx.run_spell_card(
+        name="星符「银河涡流」",
+        bonus=100000,
+        pattern=phase2_spellcard,
+        timeout_seconds=45.0,
+        hp=1000,
+        **move_params,
+    )
+    
+    # 阶段转换
+    yield from ctx.phase_transition(frames=60)
+    yield from ctx.move_to(ctx.state.width / 2, 100, frames=30)
+    
+    # === Phase 3: 符卡「星辰万象」 ===
+    ctx.update_boss_hud(phases_remaining=1)
+    yield from ctx.run_spell_card(
+        name="幻符「星辰万象」",
+        bonus=150000,
+        pattern=phase3_spellcard,
+        timeout_seconds=60.0,
+        hp=1200,
+        **move_params,
+    )
+    
+    # Boss 战结束
+    ctx.kill_boss()
+
+
 # ============ Boss Factory ============
 
 @boss_registry.register("stage1_boss")
 def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
     """
-    Spawn the Stage 1 Boss.
+    Spawn the Stage 1 Boss（纯脚本驱动模式）。
     
-    Creates a Boss Actor with:
-    - 3 phases (1 non-spell, 2 spell cards)
-    - Movement behavior
-    - HUD data
+    创建 Boss Actor 并启动主脚本。
+    所有阶段逻辑由 stage1_boss_script 控制。
     
     Args:
         state: GameState to spawn the boss in
@@ -660,6 +740,8 @@ def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
         The created Boss Actor
     """
     from pygame.math import Vector2
+    from random import Random
+    from model.scripting.context import TaskContext
     
     boss = Actor()
     
@@ -681,68 +763,36 @@ def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
         mask=CollisionLayer.PLAYER_BULLET,
     ))
     
-    # Define phases
-    phases = [
-        BossPhase(
-            phase_type=PhaseType.NON_SPELL,
-            hp=800,
-            duration=30.0,
-            task=phase1_nonspell,
-        ),
-        BossPhase(
-            phase_type=PhaseType.SPELL_CARD,
-            hp=1000,
-            duration=45.0,
-            spell_name="星符「银河涡流」",
-            spell_bonus=100000,
-            task=phase2_spellcard,
-        ),
-        BossPhase(
-            phase_type=PhaseType.SPELL_CARD,
-            hp=1200,
-            duration=60.0,
-            spell_name="幻符「星辰万象」",
-            spell_bonus=150000,
-            task=phase3_spellcard,
-        ),
-    ]
-    
-    # Boss state with phases
-    boss_state = BossState(
+    # Boss state（简化版，无阶段列表）
+    boss.add(BossState(
         boss_name="小妖精头目",
-        phases=phases,
-        current_phase_index=0,
-        phase_timer=phases[0].duration,
         drop_power=16,
         drop_point=24,
-    )
-    boss.add(boss_state)
-    
-    # Initial health (first phase HP)
-    boss.add(Health(max_hp=phases[0].hp, hp=phases[0].hp))
-    
-    # Movement behavior
-    boss.add(BossMovementState(
-        y_min=60.0,
-        y_max=160.0,
-        idle_time_min=1.5,
-        idle_time_max=2.5,
-        move_duration_min=0.5,
-        move_duration_max=0.8,
-        target_offset_range=60.0,
     ))
+    
+    # Initial health（由脚本在每个阶段开始时设置）
+    boss.add(Health(max_hp=800, hp=800))
     
     # HUD data
     boss.add(BossHudData(
         boss_name="小妖精头目",
-        phases_remaining=len(phases),
+        phases_remaining=3,
         visible=True,
     ))
     
-    # TaskRunner for phase tasks
-    boss.add(TaskRunner())
+    # TaskRunner for boss script
+    runner = TaskRunner()
+    boss.add(runner)
     
     # Add to game state
     state.add_actor(boss)
+    
+    # 创建上下文并启动 Boss 主脚本
+    ctx = TaskContext(
+        state=state,
+        owner=boss,
+        rng=Random(42),  # 确定性 RNG
+    )
+    runner.start_task(stage1_boss_script, ctx)
     
     return boss

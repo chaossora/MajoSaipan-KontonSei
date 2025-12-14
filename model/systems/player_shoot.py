@@ -15,6 +15,7 @@ from ..components import (
     PlayerShotPattern,
     PlayerBulletKind,
     EnemyTag,
+    HomingBullet,
 )
 from ..player_shot_patterns import PlayerShotPatternConfig, execute_player_shot
 from ..option_shot_handlers import execute_option_shot
@@ -147,7 +148,7 @@ def _fire_options_new(
 
         # 在此统一生成子机子弹实体
         for shot in results:
-            spawn_player_bullet_with_velocity(
+            bullet = spawn_player_bullet_with_velocity(
                 state,
                 opt_pos[0] + shot.offset.x,
                 opt_pos[1] + shot.offset.y,
@@ -155,6 +156,12 @@ def _fire_options_new(
                 damage,
                 bullet_kind,
             )
+            # Focus 模式下添加持续追踪组件
+            if is_focusing:
+                bullet.add(HomingBullet(
+                    turn_rate=360.0,
+                    speed=effective_speed,
+                ))
 
 
 def _find_nearest_enemy_angle(state: GameState, x: float, y: float) -> float | None:

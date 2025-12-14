@@ -111,4 +111,4 @@ def _apply_boss_bomb_damage(enemy: Actor, health: Health) -> None:
     # 应用伤害
     health.hp = max(0, health.hp - damage)
 
-    # 注意：Boss 死亡由 boss_phase_system 处理，此处不添加 EnemyJustDied
+    # 注意：Boss 死亡由 Task 脚本处理，此处不添加 EnemyJustDied

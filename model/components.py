@@ -75,6 +75,13 @@ class Bullet:
 
 
 @dataclass
+class HomingBullet:
+    """追踪子弹组件（ECS纯数据）：子弹会持续追踪最近的敌人。"""
+    turn_rate: float = 360.0  # 每秒转向角度（度）
+    speed: float = 400.0      # 追踪速度（会覆盖原速度大小）
+
+
+@dataclass
 class BulletGrazeState:
     """敌弹是否已被擦过一次。"""
     grazed: bool = False
@@ -132,6 +139,11 @@ class BombConfigData:
     beam_length: float = 600.0
     effect_sprite: str = "bomb_field"
     damage: int = 9999  # 每帧伤害（对普通敌人相当于秒杀）
+    # CONVERT 炸弹专用配置
+    convert_speed: float = 350.0       # 转换后子弹追踪速度
+    convert_turn_rate: float = 360.0   # 转换后子弹转向速率（度/秒）
+    convert_damage: int = 5            # 转换后子弹伤害
+    convert_lifetime: float = 10.0      # 转换后子弹生命周期
 
 
 # ====== 敌人射击组件 ======
@@ -189,6 +201,7 @@ class PlayerLife:
 class PlayerBomb:
     bombs: int
     max_bombs: int
+    active: bool = False  # 炸弹是否正在持续中
 
 
 @dataclass
@@ -366,52 +379,18 @@ class PhaseType(Enum):
 
 
 @dataclass
-class BossPhase:
-    """
-    单个 Boss 阶段定义（纯数据）。
-    存储在 BossState.phases 列表中。
-    
-    The `task` field stores a Task generator function that controls the
-    phase's bullet patterns and behavior. When the phase starts, the
-    boss_phase_system will start this Task. When the phase ends (HP depleted
-    or timeout), the Task will be terminated.
-    
-    Requirements: 11.1
-    """
-    phase_type: PhaseType
-    hp: int                                # 该阶段血量
-    duration: float                        # 该阶段时限（秒）
-    spell_name: str = ""                   # 符卡名（非符为空）
-    spell_bonus: int = 0                   # 符卡奖励分数
-    damage_multiplier: float = 1.0         # 伤害倍率（<1 表示减伤）
-    pattern: object = None                 # BulletPatternConfig（延迟绑定）
-    # Task generator function for this phase (Requirements 11.1)
-    # Signature: Callable[[TaskContext], Generator[int, None, None]]
-    task: Optional[Callable[..., Generator[int, None, None]]] = None
-
-
-@dataclass
 class BossState:
     """
-    Boss 核心状态组件（运行时状态）：
-    - 存储所有阶段定义
-    - 跟踪当前阶段和计时器
-    - HP 由现有 Health 组件管理
-    - Tracks the current phase Task for termination on phase end
+    Boss 核心状态组件（纯脚本驱动模式）。
     
-    Requirements: 11.1
+    阶段管理完全由 Task 脚本控制，此组件只存储：
+    - Boss 名称（用于 HUD）
+    - 掉落配置
+    - Bomb 抗性配置
+    
+    HP 由 Health 组件管理，符卡状态由 SpellCardState 组件管理。
     """
     boss_name: str
-    phases: List[BossPhase] = field(default_factory=list)
-    current_phase_index: int = 0
-    phase_timer: float = 0.0               # 当前阶段剩余时间
-    phase_transitioning: bool = False      # 正在阶段转换
-    transition_timer: float = 0.0
-    phase_initialized: bool = False        # 当前阶段是否已初始化（Task 已启动）
-    
-    # Current phase Task reference (for termination on phase end)
-    # This is set by boss_phase_system when starting a phase Task
-    current_phase_task: Optional[Any] = None  # Task object
 
     # 掉落配置
     drop_power: int = 16
@@ -435,37 +414,6 @@ class SpellCardState:
     spell_bonus_value: int = 0
     damage_multiplier: float = 1.0
     invulnerable: bool = False             # 生存符卡时 True
-
-
-@dataclass
-class BossMovementState:
-    """
-    Boss 移动控制组件。
-    实现东方风格的间隔滑动移动（状态机模式）。
-    """
-    # 活动范围
-    y_min: float = 50.0                    # Y 轴活动上限
-    y_max: float = 180.0                   # Y 轴活动下限
-
-    # 状态机
-    is_moving: bool = False                # 是否正在滑动
-    move_timer: float = 1.0                # 下次移动倒计时（初始 1 秒后开始移动）
-    move_progress: float = 0.0             # 当前移动进度 (0-1)
-    move_duration: float = 0.6             # 单次移动持续时间
-
-    # 移动目标（运行时状态）
-    start_x: float = 0.0
-    start_y: float = 0.0
-    target_x: float = 0.0
-    target_y: float = 0.0
-
-    # 配置参数
-    idle_time_min: float = 1.5             # 静止等待时间下限
-    idle_time_max: float = 3.0             # 静止等待时间上限
-    move_duration_min: float = 0.4         # 滑动时间下限
-    move_duration_max: float = 0.8         # 滑动时间上限
-    target_offset_range: float = 50.0      # X 目标随机偏移范围
-    y_variation: float = 30.0              # Y 方向波动范围
 
 
 @dataclass

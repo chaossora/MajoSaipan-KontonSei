@@ -109,11 +109,16 @@ def _reimu_a() -> CharacterPreset:
             offsets_focus_enhanced=[0.0],
         ),
         bomb=BombConfigData(
-            bomb_type=BombType.CIRCLE,
+            bomb_type=BombType.CONVERT,
             duration=0.8,
-            invincible_time=2.0,
+            invincible_time=2.5,
             radius=96.0,
             effect_sprite="bomb_field",
+            # 转换炸弹配置
+            convert_speed=400.0,
+            convert_turn_rate=400.0,
+            convert_damage=8,
+            convert_lifetime=4.0,
         ),
         # 子机配置：动态对称分布，平时直射 / Focus追踪
         option=OptionConfig(

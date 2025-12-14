@@ -2,6 +2,12 @@
 Task 和 TaskRunner 组件：协程式脚本系统。
 
 Task 是单个协程任务，TaskRunner 是任务执行器组件。
+
+yield N 语义（LuaSTG 风格）：
+- yield 1 = 等待 1 帧，下一帧继续执行（每帧执行）
+- yield 2 = 等待 2 帧（隔 1 帧执行）
+- yield 60 = 等待 60 帧（约 1 秒）
+- yield 0 或负数 = 等同于 yield 1
 """
 from __future__ import annotations
 
@@ -18,8 +24,8 @@ class Task:
     单个协程任务。
     
     Attributes:
-        generator: 脚本生成器（yield int 表示等待帧数）
-        wait_frames: 剩余等待帧数
+        generator: 脚本生成器（yield N = 等待 N 帧后继续）
+        wait_frames: 剩余等待帧数（0 表示下一帧执行）
         finished: 任务是否已完成
         ctx: 执行上下文（TaskContext）
     """
@@ -66,23 +72,26 @@ class TaskRunner:
         """
         推进所有任务一帧。
         
+        执行逻辑：
+        - 如果 wait_frames > 0：递减并跳过本帧
+        - 如果 wait_frames == 0：执行协程，获取新的跳过帧数
+        
         **Requirements 13.7**: 任务按添加顺序处理（稳定遍历顺序）。
-        tasks 列表是 Python list，保持插入顺序。
         """
-        # 按稳定顺序遍历（list 保持插入顺序）
         for task in self.tasks:
             if task.finished:
                 continue
             
-            # 还在等待中？减 1 帧，跳过
+            # 还有剩余跳过帧数？递减并跳过本帧
             if task.wait_frames > 0:
                 task.wait_frames -= 1
                 continue
             
-            # 推进协程一步
+            # wait_frames == 0，执行协程一步
             try:
                 wait = next(task.generator)
-                task.wait_frames = wait if isinstance(wait, int) and wait > 0 else 0
+                # yield N → 等待 N 帧（LuaSTG 风格：yield 1 = 下一帧继续执行）
+                task.wait_frames = max(0, wait - 1) if isinstance(wait, int) else 0
             except StopIteration:
                 # 协程结束
                 task.finished = True
