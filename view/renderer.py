@@ -72,7 +72,7 @@ class Renderer:
         # 动画状态缓存：{ id(actor): {"state": str, "frame_index": int, "timer": float} }
         self.anim_cache = {}
 
-    def render(self, state: GameState) -> None:
+    def render(self, state: GameState, flip: bool = True) -> None:
         GAME_WIDTH = 480
         SIDEBAR_WIDTH = 240
         SCREEN_HEIGHT = state.height
@@ -132,7 +132,8 @@ class Renderer:
         # 玩家 HUD (移至侧边栏)
         self._render_hud(state)
 
-        pygame.display.flip()
+        if flip:
+            pygame.display.flip()
 
     def _draw_actor(self, actor: Actor, state: GameState = None) -> None:
         """绘制精灵和可选的渲染提示。"""
