@@ -711,12 +711,22 @@ class TaskContext:
                         # 等待中
                         move_timer -= 1
                         if move_timer <= 0:
-                            # 开始新移动
+                            # 开始新移动（目标基于玩家位置）
                             is_moving = True
                             move_progress = 0.0
                             move_start_x = pos.x
                             move_start_y = pos.y
-                            move_target_x = screen_center_x + (self.random() - 0.5) * 2 * move_range_x
+                            
+                            # 获取玩家位置作为基准
+                            player = self.state.get_player()
+                            if player:
+                                player_pos = player.get(Position)
+                                base_x = player_pos.x if player_pos else screen_center_x
+                            else:
+                                base_x = screen_center_x
+                            
+                            # 目标 X：玩家位置 + 随机偏移
+                            move_target_x = base_x + (self.random() - 0.5) * 2 * move_range_x
                             move_target_x = max(margin, min(self.state.width - margin, move_target_x))
                             move_target_y = move_range_y[0] + self.random() * (move_range_y[1] - move_range_y[0])
                             move_frames_total = int(move_duration[0] + self.random() * (move_duration[1] - move_duration[0]))

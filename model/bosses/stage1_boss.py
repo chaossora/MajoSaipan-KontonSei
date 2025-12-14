@@ -665,7 +665,7 @@ def stage1_boss_script(ctx: "TaskContext") -> Generator[int, None, None]:
     """
     # 入场：移动到战斗位置
     ctx.update_boss_hud(phases_remaining=3, timer=30.0)
-    yield from ctx.move_to(ctx.state.width / 2, 120, frames=60)
+    yield from ctx.move_to(ctx.state.width / 2, 120, frames=180)
     
     # 移动参数（匹配原 BossMovementState）
     # idle_time: 1.5-2.5s = 90-150 帧
