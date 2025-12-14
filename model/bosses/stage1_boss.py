@@ -327,105 +327,384 @@ def fire_butterfly(
 
 # ============ Boss Phase Tasks ============
 
+def _draw_ten_pentagrams(
+    ctx: "TaskContext",
+    cx: float,
+    cy: float,
+    star_radius: float,
+    orbit_radius: float,
+    bullets_per_edge: int,
+    draw_interval: int,
+    hold_frames: int,
+    scatter_speed: float,
+    fly_frames: int,
+    hover_frames: int,
+    edge_scatter_speed: float,
+    archetype: str = "bullet_small",
+    base_rotation: float = 0.0,
+) -> Generator[int, None, None]:
+    """
+    同时画出10个五角星，向外散开飞行，悬停，然后每条边各自散开。
+    
+    Args:
+        ctx: TaskContext
+        cx, cy: Boss中心位置
+        star_radius: 每个五角星的半径
+        orbit_radius: 10个五角星分布的轨道半径（以boss为圆心）
+        bullets_per_edge: 每条边的子弹数
+        draw_interval: 每颗子弹之间的间隔帧数
+        hold_frames: 画完后保持形状的帧数
+        scatter_speed: 整体散开时的速度
+        fly_frames: 整体散开飞行的帧数
+        hover_frames: 第二次悬停的帧数
+        edge_scatter_speed: 每条边散开的速度
+        archetype: 子弹原型
+        base_rotation: 整体旋转角度
+    """
+    num_stars = 10
+    total_bullets_per_star = 5 * bullets_per_edge
+    frame_gap = draw_interval + 1  # yield N 的实际帧间隔是 N+1
+    
+    # 预计算所有五角星的顶点
+    star_centers = []
+    star_vertices_list = []  # 每个星星的5个顶点
+    star_scatter_angles = []  # 每个星星的整体散开方向
+    
+    for s in range(num_stars):
+        # 星星中心位置（在轨道上均匀分布）
+        orbit_angle_deg = base_rotation + s * (360 / num_stars)
+        orbit_angle_rad = math.radians(orbit_angle_deg)
+        star_cx = cx + orbit_radius * math.cos(orbit_angle_rad)
+        star_cy = cy + orbit_radius * math.sin(orbit_angle_rad)
+        star_centers.append((star_cx, star_cy))
+        
+        # 整体散开方向：从boss中心指向星星中心
+        star_scatter_angles.append(orbit_angle_deg)
+        
+        # 计算这个星星的5个顶点（相对于星星中心）
+        vertices = []
+        for k in range(5):
+            angle_deg = k * 72 - 90  # -90让第一个顶点朝上
+            angle_rad = math.radians(angle_deg)
+            vx = star_radius * math.cos(angle_rad)
+            vy = star_radius * math.sin(angle_rad)
+            vertices.append((vx, vy))
+        star_vertices_list.append(vertices)
+    
+    # 五角星的边连接顺序：0→2→4→1→3→0
+    edge_indices = [(0, 2), (2, 4), (4, 1), (1, 3), (3, 0)]
+    
+    # 逐颗画子弹（所有星星同时画）
+    bullet_idx = 0
+    for edge_idx, (start_idx, end_idx) in enumerate(edge_indices):
+        for j in range(bullets_per_edge):
+            t = j / max(bullets_per_edge - 1, 1)
+            
+            # 为所有10个星星的这一颗子弹创建
+            for s in range(num_stars):
+                star_cx, star_cy = star_centers[s]
+                vertices = star_vertices_list[s]
+                star_angle = star_scatter_angles[s]
+                
+                start_vx, start_vy = vertices[start_idx]
+                end_vx, end_vy = vertices[end_idx]
+                edge_dx = end_vx - start_vx
+                edge_dy = end_vy - start_vy
+                
+                # 子弹在边上的相对位置
+                rel_x = start_vx + t * edge_dx
+                rel_y = start_vy + t * edge_dy
+                
+                # 子弹的绝对位置
+                bullet_x = star_cx + rel_x
+                bullet_y = star_cy + rel_y
+                
+                # 计算边的散开方向：从五角星中心指向边中点
+                mid_x = (start_vx + end_vx) / 2
+                mid_y = (start_vy + end_vy) / 2
+                base_edge_angle = math.degrees(math.atan2(mid_y, mid_x))
+                
+                # 引入梯度：角度和速度根据子弹在边上的位置(t)变化
+                # 角度梯度：从-25度到+25度的扇形展开
+                angle_spread = 50  # 总角度范围
+                edge_scatter_angle = base_edge_angle + (t - 0.5) * angle_spread
+                
+                # 速度梯度：从0.7x到1.3x的速度变化，形成倾斜弹幕墙
+                speed_factor = 0.7 + t * 0.6  # t=0时0.7倍，t=1时1.3倍
+                final_edge_speed = edge_scatter_speed * speed_factor
+                
+                # 同步等待：早期子弹等待更久
+                wait_for_sync = (total_bullets_per_star - 1 - bullet_idx) * frame_gap + 1
+                
+                # 平滑运动参数计算
+                # 目标：保持总飞行距离近似不变，但加入加减速过程
+                accel_frames = 20
+                decel_frames = 20
+                
+                # 原飞行距离 ≈ speed * fly_frames
+                # 新飞行距离 = 0.5 * speed * accel + speed * cruise + 0.5 * speed * decel
+                # cruise = fly - 0.5*(accel + decel)
+                cruise_frames = int(fly_frames - 0.5 * (accel_frames + decel_frames))
+                if cruise_frames < 0:
+                    # 如果预设飞行时间太短，缩短加减速时间
+                    cruise_frames = 0
+                    accel_frames = fly_frames // 2
+                    decel_frames = fly_frames - accel_frames
+
+                # 运动程序：
+                # 1. 等待画完 → 2. 保持形状 → 3. 整体向外散开飞行 (平滑加减速)
+                # → 4. 悬停 → 5. 每条边各自散开（带角度和速度梯度，平滑加速）
+                motion = (MotionBuilder(speed=0, angle=star_angle)
+                    .wait(wait_for_sync)      # 等待所有子弹画完
+                    .wait(hold_frames)        # 保持形状
+                    
+                    # 平滑加速散开
+                    .accelerate_to(scatter_speed, accel_frames) 
+                    .wait(cruise_frames)      # 巡航飞行
+                    # 平滑减速悬停
+                    .accelerate_to(0, decel_frames)             
+                    
+                    .wait(hover_frames)       # 悬停时间
+                    .set_angle(edge_scatter_angle)  # 转向边的散开方向（带角度梯度）
+                    
+                    # 平滑加速边缘散开
+                    .accelerate_to(final_edge_speed, 20)    # 每条边散开（带速度梯度）
+                    .build())
+                
+                ctx.fire(bullet_x, bullet_y, 0, star_angle, archetype, motion=motion)
+            
+            bullet_idx += 1
+            
+            # 逐颗画：每颗子弹之间间隔
+            if bullet_idx < total_bullets_per_star:
+                yield draw_interval
+
+
 def phase1_nonspell(ctx: "TaskContext") -> Generator[int, None, None]:
     """
-    Phase 1: 非符 - 「万华镜」
+    Phase 1: 非符 - 「十星绽放」
     
-    多层旋转的玫瑰曲线弹幕，形成万花筒效果
-    - 内层顺时针旋转
-    - 外层逆时针旋转
-    - 不同颜色/大小的子弹
+    Boss入场后，以自己为圆心画出10个五角星：
+    - 10个五角星同时画出（有画星星的过程）
+    - 画完后向四周散开
+    - 循环发射
     """
-    angle_offset = 0.0
     wave = 0
     
     while True:
         x, y = ctx.owner_pos()
         
-        # 内层：3瓣玫瑰，顺时针
-        fire_rose_curve(
+        # 画出10个五角星并散开
+        yield from _draw_ten_pentagrams(
             ctx, x, y,
-            petals=3,
-            radius=60,
-            bullet_count=24,
-            speed=70,
+            star_radius=80,           # 每个五角星的大小
+            orbit_radius=60,          # 星星分布的轨道半径
+            bullets_per_edge=10,       # 每条边10颗子弹
+            draw_interval=2,          # 每颗子弹间隔2帧
+            hold_frames=40,           # 画完后保持40帧
+            scatter_speed=160,         # 整体散开速度
+            fly_frames=40,            # 整体飞行40帧
+            hover_frames=30,          # 第二次悬停30帧
+            edge_scatter_speed=100,   # 每条边散开速度
             archetype="bullet_small",
-            rotation=angle_offset,
-            expand_first=True,
-            hold_frames=25,
+            base_rotation=wave * 18,  # 每波旋转18度
         )
         
-        # 外层：5瓣玫瑰，逆时针（每隔一波）
-        if wave % 2 == 0:
-            fire_rose_curve(
-                ctx, x, y,
-                petals=5,
-                radius=90,
-                bullet_count=30,
-                speed=60,
-                archetype="bullet_medium",
-                rotation=-angle_offset * 0.7 + 36,
-                expand_first=True,
-                hold_frames=35,
-            )
-        
-        angle_offset += 11
         wave += 1
-        yield 28
+        yield 60  # 波次间隔
 
 
 def phase2_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     """
-    Phase 2: 符卡「银河涡流」
+    Phase 2: 奇迹「摩西开海」
     
-    螺旋星系弹幕 + 流星五角星的组合：
-    1. 中心发射螺旋星系弹幕
-    2. 四角发射流星五角星
-    3. 追踪弹穿插其中
+    左右两边的波浪屏障由长度不同的直激光拼成：
+    - 激光源分布在屏幕左右边缘，向中间发射。
+    - 激光长度随时间波动，形成波浪形的通道。
+    - 激光从屏幕底部升起入场。
+    - 中间有密集的米粒弹幕流。
     """
-    rotation = 0.0
-    wave = 0
+    from model.components import LaserState, Position
+
+    screen_w = ctx.state.width
+    screen_h = ctx.state.height
+    center_x = screen_w / 2
     
-    while True:
-        x, y = ctx.owner_pos()
-        screen_w = ctx.state.width
+    # 1. Boss移动到上方中央
+    yield from ctx.move_to(center_x, 80, frames=60)
+    
+    # 2. 创建激光墙（初始在屏幕左右两侧外）
+    lasers_left = []
+    lasers_right = []
+    
+    num_lasers = 40  # 增加激光数量，使屏障更密集
+    step_y = screen_h / num_lasers
+    
+    # 初始偏移，让激光在屏幕外
+    # 左侧激光：初始 X = -entry_offset_x
+    # 右侧激光：初始 X = screen_w + entry_offset_x
+    entry_offset_x = 200.0
+    
+    # 初始化激光
+    for i in range(num_lasers):
+        y_pos = i * step_y + 10
         
-        # 主弹幕：螺旋星系
-        if wave % 3 == 0:
-            fire_spiral_galaxy(
-                ctx, x, y,
-                arms=4,
-                bullets_per_arm=12,
-                base_radius=80,
-                spiral_tightness=180,
-                speed=65,
-                archetype="bullet_small",
-                rotation=rotation,
-                clockwise=(wave // 3) % 2 == 0,
-            )
+        # 左侧激光（从左边缘向右发射）
+        l1 = ctx.fire_laser(
+            x=-entry_offset_x,
+            y=y_pos,
+            angle=0,  # 向右
+            length=100, # 初始长度
+            width=12.0,
+            laser_type="straight", 
+            warmup_frames=0, # 无预热
+            duration_frames=6000, # 持续很久
+            can_reflect=False
+        )
+        lasers_left.append((l1, y_pos))
         
-        # 流星五角星从屏幕边缘飞入
-        screen_h = ctx.state.height
-        center_x = screen_w / 2
-        center_y = screen_h / 2
+        # 右侧激光（从右边缘向左发射）
+        l2 = ctx.fire_laser(
+            x=screen_w + entry_offset_x,
+            y=y_pos,
+            angle=180, # 向左
+            length=100,
+            width=12.0,
+            laser_type="straight",
+            warmup_frames=0, # 无预热
+            duration_frames=6000,
+            can_reflect=False
+        )
+        lasers_right.append((l2, y_pos))
+
+    # 不需要等待预热了，直接开始进场和波动
+    
+    try:
+        # 3. 循环更新激光长度、位置并发射弹幕
+        time_counter = 0
         
-        if wave % 4 == 1:
-            # 从左上角飞向中央
-            angle_to_center = math.degrees(math.atan2(center_y - 40, center_x - 40))
-            yield from _draw_meteor_star(ctx, 40, 40, 45, rotation, angle_to_center)
-        elif wave % 4 == 3:
-            # 从右上角飞向中央
-            angle_to_center = math.degrees(math.atan2(center_y - 40, center_x - (screen_w - 40)))
-            yield from _draw_meteor_star(ctx, screen_w - 40, 40, 45, -rotation, angle_to_center)
+        # 入场动画状态
+        current_entry_offset = entry_offset_x
+        entry_speed = 3.0 # 水平滑入速度
         
-        # 环形弹幕填充
-        if wave % 2 == 0:
-            fire_ring(ctx, x, y, count=8, speed=80, archetype="bullet_medium", 
-                     start_angle=rotation * 2)
+        # 活跃的蓝色弹幕流列表
+        # 每个元素: {'x': float, 'y': float, 'angle': float, 'remaining': int, 'interval': int, 'timer': int}
+        active_blue_streams = []
         
-        rotation += 15
-        wave += 1
-        yield 35
+        while True:
+            # 更新入场偏移（逐渐减小到0）
+            if current_entry_offset > 0:
+                current_entry_offset -= entry_speed
+                if current_entry_offset < 0:
+                    current_entry_offset = 0
+            
+            # 波浪参数
+            base_channel_width = 160
+            amplitude = 40.0
+            t_speed = 0.05
+            y_freq = 0.02
+            
+            # 更新左侧激光
+            for laser, base_y in lasers_left:
+                pos = laser.get(Position)
+                ls = laser.get(LaserState)
+                if ls and pos:
+                    # 更新位置（从左侧滑入）
+                    # 目标 X = 0, 当前 X = -current_entry_offset
+                    pos.x = -current_entry_offset
+                    
+                    # 波浪偏移
+                    offset = math.sin(time_counter * t_speed + base_y * y_freq) * amplitude
+                    
+                    # 目标长度 = 固定基准长度 + 波浪
+                    # 基准长度是从屏幕左缘(0)到通道左缘(center_x - base_channel_width/2)的距离
+                    base_len = (center_x - base_channel_width / 2)
+                    ls.length = max(10.0, base_len + offset)
+            
+            # 更新右侧激光
+            for laser, base_y in lasers_right:
+                pos = laser.get(Position)
+                ls = laser.get(LaserState)
+                if ls and pos:
+                    # 更新位置（从右侧滑入）
+                    # 目标 X = screen_w, 当前 X = screen_w + current_entry_offset
+                    pos.x = screen_w + current_entry_offset
+                    
+                    # 右侧波浪偏移
+                    offset = math.sin(time_counter * t_speed + base_y * y_freq) * amplitude
+                    
+                    # 目标长度 = 固定基准长度 + 波浪
+                    # 基准长度是从通道右缘到屏幕右缘的距离
+                    # 即 screen_w - (center_x + base_channel_width/2)
+                    base_len = screen_w - (center_x + base_channel_width / 2)
+                    # 注意：对于向左发射的激光，长度也是正值
+                    ls.length = max(10.0, base_len - offset)  # 右侧波浪方向相反以匹配视觉？
+                    # 之前的逻辑：target_endpoint_x = (center_x + base_channel_width / 2 + offset)
+                    # length = pos.x - target_endpoint_x
+                    # pos.x = screen_w (at end)
+                    # length = screen_w - (center + width/2 + offset) = (screen_w - center - width/2) - offset
+                    # 所以是 base_len - offset
+            
+            # 处理活跃的蓝色弹幕流
+            for stream in active_blue_streams[:]:
+                stream['timer'] -= 1
+                if stream['timer'] <= 0:
+                    # 发射子弹
+                    ctx.fire(stream['x'], stream['y'], 250, stream['angle'], "bullet_small")
+                    stream['remaining'] -= 1
+                    stream['timer'] = stream['interval']
+                    
+                    if stream['remaining'] <= 0:
+                        active_blue_streams.remove(stream)
+
+            # 发射弹幕（仅当滑入一部分后开始）
+            if current_entry_offset < 50:
+                # 1. 蓝色竖直扇形弹幕 (3条直线流)
+                # 每 90 帧发射一波
+                if time_counter % 90 == 0:
+                    # 在通道范围内随机选1个发射中心点
+                    safe_width = 140
+                    fire_y = 100 
+                    
+                    center_fire_x = center_x + ctx.random_range(-safe_width/2, safe_width/2)
+                    
+                    # 定义3条流的角度，从同一点发射，形成扇形
+                    # 角度：80, 90, 100
+                    streams_config = [
+                        {'angle': 75}, 
+                        {'angle': 90},
+                        {'angle': 105},
+                    ]
+                    
+                    for cfg in streams_config:
+                        active_blue_streams.append({
+                            'x': center_fire_x, # 相同起点
+                            'y': fire_y,
+                            'angle': cfg['angle'],
+                            'remaining': 15,     # 增加连射数量
+                            'interval': 3,       # 提高射速
+                            'timer': 0
+                        })
+
+                # 2. 红色自机狙流
+                # 每 120 帧发射一轮
+                aim_interval = 120
+                aim_duration = 30 # 持续发射30帧
+                aim_cycle = time_counter % aim_interval
+                
+                if aim_cycle < aim_duration and aim_cycle % 3 == 0:
+                    bx, by = ctx.owner_pos()
+                    speed = 250
+                    ctx.fire_aimed(bx, by, speed, "bullet_medium")
+            
+            time_counter += 1
+            yield 1
+    finally:
+        # 符卡结束或中断时，清理所有激光
+        for laser, _ in lasers_left:
+            ctx.state.remove_actor(laser)
+        for laser, _ in lasers_right:
+            ctx.state.remove_actor(laser)
 
 
 def _draw_meteor_star(
@@ -515,9 +794,6 @@ def _draw_meteor_star(
             ctx.fire(bullet_x, bullet_y, 0, meteor_angle, "bullet_small", motion=motion)
             bullet_idx += 1
             
-            # 逐颗画：每颗子弹之间间隔 draw_interval 帧
-            if bullet_idx < total_bullets:
-                yield draw_interval
 
 
 def phase3_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
@@ -691,10 +967,10 @@ def stage1_boss_script(ctx: "TaskContext") -> Generator[int, None, None]:
     yield from ctx.phase_transition(frames=60)
     yield from ctx.move_to(ctx.state.width / 2, 100, frames=30)
     
-    # === Phase 2: 符卡「银河涡流」 ===
+    # === Phase 2: 奇迹「摩西开海」 ===
     ctx.update_boss_hud(phases_remaining=2)
     yield from ctx.run_spell_card(
-        name="星符「银河涡流」",
+        name="奇迹「摩西开海」",
         bonus=100000,
         pattern=phase2_spellcard,
         timeout_seconds=45.0,

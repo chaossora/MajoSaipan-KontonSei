@@ -310,6 +310,18 @@ class Assets:
         pygame.draw.circle(eb, (200, 0, 200), (4, 4), 4)
         self.images["enemy_bullet_basic"] = eb
 
+        # 蓝色小弹 (bullet_small) - 用于扇形弹幕
+        b_small = pygame.Surface((12, 12), pygame.SRCALPHA)
+        pygame.draw.circle(b_small, (100, 100, 255), (6, 6), 5) # 浅蓝
+        pygame.draw.circle(b_small, (255, 255, 255), (6, 6), 3) # 白芯
+        self.images["bullet_small"] = b_small
+
+        # 红色中弹 (bullet_medium) - 用于自机狙
+        b_med = pygame.Surface((16, 16), pygame.SRCALPHA)
+        pygame.draw.circle(b_med, (255, 50, 50), (8, 8), 7) # 红
+        pygame.draw.circle(b_med, (255, 255, 255), (8, 8), 4) # 白芯
+        self.images["bullet_medium"] = b_med
+
         # 炸弹场精灵
         radius = 96
         size = radius * 2

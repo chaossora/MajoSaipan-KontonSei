@@ -676,75 +676,78 @@ class TaskContext:
         screen_center_x = self.state.width / 2
         margin = 50.0
         
-        while elapsed_frames < timeout_frames:
-            # 检查 HP
-            if self.get_hp() <= 0:
-                return False  # HP 耗尽
-            
-            # 更新 HUD 计时器
-            remaining = (timeout_frames - elapsed_frames) / 60.0
-            self.update_boss_hud(timer=remaining)
-            
-            # 处理移动
-            if move_enabled and self.owner:
-                pos = self.owner.get(Position)
-                if pos:
-                    if is_moving:
-                        # 正在移动：更新位置
-                        move_progress += 1.0 / move_frames_total
-                        if move_progress >= 1.0:
-                            pos.x = move_target_x
-                            pos.y = move_target_y
-                            is_moving = False
-                            # 设置下次移动等待
-                            move_timer = int(move_interval[0] + self.random() * (move_interval[1] - move_interval[0]))
+        try:
+            while elapsed_frames < timeout_frames:
+                # 检查 HP
+                if self.get_hp() <= 0:
+                    return False  # HP 耗尽
+                
+                # 更新 HUD 计时器
+                remaining = (timeout_frames - elapsed_frames) / 60.0
+                self.update_boss_hud(timer=remaining)
+                
+                # 处理移动
+                if move_enabled and self.owner:
+                    pos = self.owner.get(Position)
+                    if pos:
+                        if is_moving:
+                            # 正在移动：更新位置
+                            move_progress += 1.0 / move_frames_total
+                            if move_progress >= 1.0:
+                                pos.x = move_target_x
+                                pos.y = move_target_y
+                                is_moving = False
+                                # 设置下次移动等待
+                                move_timer = int(move_interval[0] + self.random() * (move_interval[1] - move_interval[0]))
+                            else:
+                                # 缓动
+                                t = move_progress
+                                if t < 0.5:
+                                    eased = 2 * t * t
+                                else:
+                                    eased = 1 - (-2 * t + 2) ** 2 / 2
+                                pos.x = move_start_x + (move_target_x - move_start_x) * eased
+                                pos.y = move_start_y + (move_target_y - move_start_y) * eased
                         else:
-                            # 缓动
-                            t = move_progress
-                            if t < 0.5:
-                                eased = 2 * t * t
-                            else:
-                                eased = 1 - (-2 * t + 2) ** 2 / 2
-                            pos.x = move_start_x + (move_target_x - move_start_x) * eased
-                            pos.y = move_start_y + (move_target_y - move_start_y) * eased
-                    else:
-                        # 等待中
-                        move_timer -= 1
-                        if move_timer <= 0:
-                            # 开始新移动（目标基于玩家位置）
-                            is_moving = True
-                            move_progress = 0.0
-                            move_start_x = pos.x
-                            move_start_y = pos.y
-                            
-                            # 获取玩家位置作为基准
-                            player = self.state.get_player()
-                            if player:
-                                player_pos = player.get(Position)
-                                base_x = player_pos.x if player_pos else screen_center_x
-                            else:
-                                base_x = screen_center_x
-                            
-                            # 目标 X：玩家位置 + 随机偏移
-                            move_target_x = base_x + (self.random() - 0.5) * 2 * move_range_x
-                            move_target_x = max(margin, min(self.state.width - margin, move_target_x))
-                            move_target_y = move_range_y[0] + self.random() * (move_range_y[1] - move_range_y[0])
-                            move_frames_total = int(move_duration[0] + self.random() * (move_duration[1] - move_duration[0]))
+                            # 等待中
+                            move_timer -= 1
+                            if move_timer <= 0:
+                                # 开始新移动（目标基于玩家位置）
+                                is_moving = True
+                                move_progress = 0.0
+                                move_start_x = pos.x
+                                move_start_y = pos.y
+                                
+                                # 获取玩家位置作为基准
+                                player = self.state.get_player()
+                                if player:
+                                    player_pos = player.get(Position)
+                                    base_x = player_pos.x if player_pos else screen_center_x
+                                else:
+                                    base_x = screen_center_x
+                                
+                                # 目标 X：玩家位置 + 随机偏移
+                                move_target_x = base_x + (self.random() - 0.5) * 2 * move_range_x
+                                move_target_x = max(margin, min(self.state.width - margin, move_target_x))
+                                move_target_y = move_range_y[0] + self.random() * (move_range_y[1] - move_range_y[0])
+                                move_frames_total = int(move_duration[0] + self.random() * (move_duration[1] - move_duration[0]))
+                
+                # 推进弹幕生成器
+                if pattern_wait <= 0:
+                    try:
+                        pattern_wait = next(pattern_gen)
+                    except StopIteration:
+                        # 弹幕结束，继续等待直到 HP 耗尽或超时
+                        pass
+                else:
+                    pattern_wait -= 1
+                
+                elapsed_frames += 1
+                yield 1  # 每帧执行（LuaSTG 风格）
             
-            # 推进弹幕生成器
-            if pattern_wait <= 0:
-                try:
-                    pattern_wait = next(pattern_gen)
-                except StopIteration:
-                    # 弹幕结束，继续等待直到 HP 耗尽或超时
-                    pass
-            else:
-                pattern_wait -= 1
-            
-            elapsed_frames += 1
-            yield 1  # 每帧执行（LuaSTG 风格）
-        
-        return True  # 超时
+            return True  # 超时
+        finally:
+            pattern_gen.close()
     
     def run_spell_card(
         self,
@@ -887,3 +890,129 @@ class TaskContext:
             
             move_frames = int(move_frames_min + self.random() * (move_frames_max - move_frames_min))
             yield from self.move_to(target_x, target_y, move_frames)
+
+    # ====== 激光发射原语 ======
+
+    def fire_laser(
+        self,
+        x: float,
+        y: float,
+        angle: float,
+        length: float = 400.0,
+        width: float = 8.0,
+        laser_type: str = "straight",
+        warmup_frames: int = 60,
+        duration_frames: int = 180,
+        angular_velocity: float = 0.0,
+        can_reflect: bool = False,
+        max_reflects: int = 3,
+        sine_amplitude: float = 50.0,
+        sine_wavelength: float = 100.0,
+    ) -> "Actor":
+        """
+        发射激光。
+
+        Args:
+            x, y: 激光起点位置
+            angle: 激光角度（度，0=右，90=下）
+            length: 激光长度（像素）
+            width: 激光判定宽度（像素）
+            laser_type: "straight"（直线）或 "sine_wave"（正弦波）
+            warmup_frames: 预热帧数（显示预警线但无判定）
+            duration_frames: 激活持续帧数
+            angular_velocity: 角速度（度/帧）
+            can_reflect: 是否支持边界反射
+            max_reflects: 最大反射次数
+            sine_amplitude: 正弦波振幅（像素）
+            sine_wavelength: 正弦波波长（像素）
+
+        Returns:
+            创建的激光 Actor
+        """
+        from model.actor import Actor
+        from model.components import (
+            Position, LaserState, LaserTag, LaserType, Lifetime
+        )
+
+        laser = Actor()
+
+        # 位置
+        laser.add(Position(x, y))
+
+        # 激光标签
+        laser.add(LaserTag())
+
+        # 解析激光类型
+        if laser_type == "sine_wave":
+            lt = LaserType.SINE_WAVE
+        else:
+            lt = LaserType.STRAIGHT
+
+        # 激光状态
+        laser.add(LaserState(
+            laser_type=lt,
+            width=width,
+            length=length,
+            angle=angle,
+            sine_amplitude=sine_amplitude,
+            sine_wavelength=sine_wavelength,
+            sine_phase=0.0,
+            can_reflect=can_reflect,
+            reflect_count=0,
+            max_reflects=max_reflects,
+            active=True,
+            warmup_frames=warmup_frames,
+            warmup_timer=warmup_frames,
+            angular_velocity=angular_velocity,
+        ))
+
+        # 生命周期（预热 + 激活持续时间）
+        total_duration = (warmup_frames + duration_frames) / 60.0
+        laser.add(Lifetime(time_left=total_duration))
+
+        # 添加到游戏状态
+        self.state.add_actor(laser)
+
+        return laser
+
+    def fire_cross_laser(
+        self,
+        x: float,
+        y: float,
+        angle1: float = 45.0,
+        angle2: float = 135.0,
+        length: float = 500.0,
+        width: float = 12.0,
+        warmup_frames: int = 60,
+        duration_frames: int = 180,
+        can_reflect: bool = True,
+        max_reflects: int = 3,
+    ) -> list:
+        """
+        发射交叉激光（X形）。
+
+        Args:
+            x, y: 激光起点位置
+            angle1: 第一条激光角度（度）
+            angle2: 第二条激光角度（度）
+            length: 激光长度（像素）
+            width: 激光判定宽度（像素）
+            warmup_frames: 预热帧数
+            duration_frames: 激活持续帧数
+            can_reflect: 是否支持边界反射
+            max_reflects: 最大反射次数
+
+        Returns:
+            两条激光的 Actor 列表
+        """
+        laser1 = self.fire_laser(
+            x, y, angle1, length, width,
+            "straight", warmup_frames, duration_frames,
+            can_reflect=can_reflect, max_reflects=max_reflects
+        )
+        laser2 = self.fire_laser(
+            x, y, angle2, length, width,
+            "straight", warmup_frames, duration_frames,
+            can_reflect=can_reflect, max_reflects=max_reflects
+        )
+        return [laser1, laser2]

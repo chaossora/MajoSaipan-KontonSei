@@ -53,6 +53,13 @@ class PlayerGrazeEnemyBullet:
     bullet: Actor
 
 
+@dataclass
+class LaserHitPlayer:
+    """激光命中玩家事件"""
+    laser: Actor
+    player: Actor
+
+
 # 以后可以在这里继续添加其他事件类型：
 # @dataclass
 # class PlayerEnterTrigger: ...
@@ -68,6 +75,7 @@ class CollisionEvents:
     bomb_clears_enemy_bullet: List[BombClearedEnemyBullet] = field(default_factory=list)
     player_pickup_item: List[PlayerPickupItem] = field(default_factory=list)
     player_graze_enemy_bullet: List[PlayerGrazeEnemyBullet] = field(default_factory=list)
+    laser_hits_player: List[LaserHitPlayer] = field(default_factory=list)
 
     def clear(self) -> None:
         self.player_bullet_hits_enemy.clear()
@@ -76,3 +84,4 @@ class CollisionEvents:
         self.bomb_clears_enemy_bullet.clear()
         self.player_pickup_item.clear()
         self.player_graze_enemy_bullet.clear()
+        self.laser_hits_player.clear()
