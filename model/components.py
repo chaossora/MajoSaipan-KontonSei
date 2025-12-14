@@ -479,4 +479,54 @@ class OptionTag:
     slot_index: int = 0                    # 槽位索引 (0-3)
 
 
+# ====== 激光组件 ======
+
+class LaserType(Enum):
+    """激光类型"""
+    STRAIGHT = auto()      # 直线激光
+    SINE_WAVE = auto()     # 正弦波激光
+
+
+@dataclass
+class LaserState:
+    """
+    激光状态组件。
+
+    直线激光：使用 origin + angle + length 定义
+    正弦波激光：沿主轴采样形成多线段
+
+    判定逻辑：点到线段距离 <= laser_width/2 + player_hitbox_radius
+    """
+    laser_type: LaserType = LaserType.STRAIGHT
+
+    # 几何参数
+    width: float = 8.0              # 激光判定宽度
+    length: float = 400.0           # 激光长度
+    angle: float = 90.0             # 激光角度（度，90=向下）
+
+    # 正弦波参数
+    sine_amplitude: float = 50.0    # 波峰振幅（像素）
+    sine_wavelength: float = 100.0  # 波长（像素）
+    sine_phase: float = 0.0         # 相位（度）
+
+    # 反射参数
+    can_reflect: bool = False       # 是否支持边界反射
+    reflect_count: int = 0          # 已反射次数
+    max_reflects: int = 3           # 最大反射次数
+
+    # 激光状态
+    active: bool = True             # 是否激活（有判定）
+    warmup_frames: int = 0          # 预热帧数（预警线显示期间无判定）
+    warmup_timer: int = 0           # 预热计时器
+
+    # 旋转参数
+    angular_velocity: float = 0.0   # 角速度（度/帧）
+
+
+@dataclass
+class LaserTag:
+    """激光实体标签"""
+    pass
+
+
 

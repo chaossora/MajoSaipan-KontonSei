@@ -11,6 +11,7 @@ from model.components import (
     PlayerBulletKindTag, PlayerBulletKind,
     EnemyKindTag, EnemyKind,
     EnemyBulletKindTag, EnemyBulletKind,
+    LaserTag, LaserState, LaserType,
 )
 from model.game_config import CollectConfig
 
@@ -118,7 +119,21 @@ class Renderer:
             if aid not in current_actor_ids:
                 del self.anim_cache[aid]
 
-        # 绘制所有游戏对象
+        # 初始化本帧的共享发光层
+        if not hasattr(self, 'glow_surface') or self.glow_surface.get_size() != (GAME_WIDTH, SCREEN_HEIGHT):
+            self.glow_surface = pygame.Surface((GAME_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        else:
+            self.glow_surface.fill((0, 0, 0, 0))
+
+        # Pass 1: 绘制激光发光层 (Glow Pass)
+        for actor in state.actors:
+            if actor.has(LaserTag):
+                self._draw_laser_glow(actor)
+        
+        # 将发光层混合到屏幕（在实体之前，或者在背景之上）
+        self.screen.blit(self.glow_surface, (0, 0))
+
+        # Pass 2: 绘制所有游戏对象主体 (Main Pass)
         for actor in state.actors:
             self._draw_actor(actor, state)
 
@@ -184,13 +199,27 @@ class Renderer:
         # 检查是否是敌人子弹（通过类型查表渲染）
         enemy_bullet_kind_tag = actor.get(EnemyBulletKindTag)
         if enemy_bullet_kind_tag:
-            sprite_name, ox, oy = ENEMY_BULLET_SPRITES.get(
-                enemy_bullet_kind_tag.kind, DEFAULT_ENEMY_BULLET_SPRITE
-            )
-            image = self.assets.get_image(sprite_name)
+            # 优先检查 SpriteInfo 覆盖
+            sprite_info = actor.get(SpriteInfo)
+            if sprite_info and sprite_info.name:
+                image = self.assets.get_image(sprite_info.name)
+                # 自动居中
+                w, h = image.get_size()
+                ox, oy = -w // 2, -h // 2
+            else:
+                sprite_name, ox, oy = ENEMY_BULLET_SPRITES.get(
+                    enemy_bullet_kind_tag.kind, DEFAULT_ENEMY_BULLET_SPRITE
+                )
+                image = self.assets.get_image(sprite_name)
+            
             x = int(pos.x + ox)
             y = int(pos.y + oy)
             self.screen.blit(image, (x, y))
+            return
+
+        # 检查是否是激光
+        if actor.has(LaserTag):
+            self._draw_laser(actor, pos)
             return
 
         # 检查是否是敌人（通过类型查表渲染）
@@ -589,3 +618,135 @@ class Renderer:
         # Removed Timer and Boss Name from here (Moved to Sidebar)
 
         # Removed Spell Card Name/Bonus from here (Moved to Sidebar)
+
+    def _draw_laser_glow(self, actor: Actor) -> None:
+        """绘制激光发光层（到共享 glow_surface）。"""
+        laser_state = actor.get(LaserState)
+        pos = actor.get(Position)
+        if not laser_state or not pos:
+            return
+
+        # 预热阶段不绘制辉光
+        if laser_state.warmup_timer > 0:
+            return
+
+        segments = self._get_laser_segments_for_render(pos, laser_state)
+        width = int(laser_state.width)
+        
+        # 颜色：半透明红色辉光
+        glow_color = (255, 200, 200, 100)
+        glow_width = width + 8
+        
+        for x1, y1, x2, y2 in segments:
+            pygame.draw.line(
+                self.glow_surface,
+                glow_color,
+                (int(x1), int(y1)),
+                (int(x2), int(y2)),
+                glow_width
+            )
+
+    def _draw_laser(self, actor: Actor, pos: Position) -> None:
+        """
+        绘制激光主体。
+
+        - 预热阶段：绘制细红线（预警）
+        - 激活阶段：绘制不透明的白色光束核心
+        """
+        laser_state = actor.get(LaserState)
+        if not laser_state:
+            return
+
+        # 获取激光线段
+        segments = self._get_laser_segments_for_render(pos, laser_state)
+
+        if laser_state.warmup_timer > 0:
+            # 预热阶段：绘制细红线预警
+            for x1, y1, x2, y2 in segments:
+                pygame.draw.line(
+                    self.screen,
+                    (255, 100, 100),
+                    (int(x1), int(y1)),
+                    (int(x2), int(y2)),
+                    2
+                )
+        else:
+            # 激活阶段：绘制完整激光主体
+            width = int(laser_state.width)
+
+            # 绘制主体激光到屏幕（不透明）
+            main_color = (255, 255, 255)
+            core_color = (255, 255, 200)
+            
+            for x1, y1, x2, y2 in segments:
+                # 激光外壳
+                pygame.draw.line(
+                    self.screen,
+                    main_color,
+                    (int(x1), int(y1)),
+                    (int(x2), int(y2)),
+                    width
+                )
+
+                # 激光中心亮线
+                pygame.draw.line(
+                    self.screen,
+                    core_color,
+                    (int(x1), int(y1)),
+                    (int(x2), int(y2)),
+                    max(2, width // 3)
+                )
+
+    def _get_laser_segments_for_render(
+        self,
+        laser_pos: Position,
+        laser_state: LaserState
+    ) -> list:
+        """
+        获取激光的线段列表用于渲染。
+
+        与碰撞系统共用相同的逻辑，但这里是渲染专用。
+        """
+        segments = []
+
+        if laser_state.laser_type == LaserType.STRAIGHT:
+            # 直线激光
+            rad = math.radians(laser_state.angle)
+            cos_a = math.cos(rad)
+            sin_a = math.sin(rad)
+
+            end_x = laser_pos.x + laser_state.length * cos_a
+            end_y = laser_pos.y + laser_state.length * sin_a
+            segments.append((laser_pos.x, laser_pos.y, end_x, end_y))
+
+        elif laser_state.laser_type == LaserType.SINE_WAVE:
+            # 正弦波激光
+            rad = math.radians(laser_state.angle)
+            cos_a = math.cos(rad)
+            sin_a = math.sin(rad)
+
+            sample_count = max(int(laser_state.length / 20), 2)
+
+            prev_x = laser_pos.x
+            prev_y = laser_pos.y
+
+            for i in range(1, sample_count + 1):
+                t = i / sample_count
+                dist = t * laser_state.length
+
+                main_x = laser_pos.x + dist * cos_a
+                main_y = laser_pos.y + dist * sin_a
+
+                phase_deg = laser_state.sine_phase + (dist / laser_state.sine_wavelength) * 360
+                offset = laser_state.sine_amplitude * math.sin(math.radians(phase_deg))
+
+                perp_x = -sin_a * offset
+                perp_y = cos_a * offset
+
+                curr_x = main_x + perp_x
+                curr_y = main_y + perp_y
+
+                segments.append((prev_x, prev_y, curr_x, curr_y))
+                prev_x, prev_y = curr_x, curr_y
+
+        return segments

@@ -36,6 +36,8 @@ from model.systems.boss_hud_system import boss_hud_system
 from model.systems.task_system import task_system
 from model.systems.motion_program_system import motion_program_system
 from model.systems.homing_bullet_system import homing_bullet_system
+from model.systems.laser_collision_system import laser_collision_system
+from model.systems.laser_motion_system import laser_motion_system
 from model.stages.stage1 import setup_stage1
 from model.enemies import spawn_fairy_small, spawn_fairy_large, spawn_midboss
 from model.scripting.archetype import register_default_archetypes
@@ -212,6 +214,8 @@ class GameController:
 
         # 3. 碰撞检测与事件处理
         collision_detection_system(self.state)
+        laser_collision_system(self.state)      # 激光碰撞检测
+        laser_motion_system(self.state, dt)     # 激光运动更新
         collision_damage_system(self.state, dt)
 
         bomb_hit_system(self.state, dt)
