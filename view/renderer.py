@@ -55,6 +55,9 @@ ENEMY_BULLET_SPRITES: dict[EnemyBulletKind, tuple[str, int, int]] = {
 DEFAULT_ENEMY_BULLET_SPRITE = ("enemy_bullet_basic", -4, -4)
 
 
+from view.enemy_renderer import EnemyRenderer
+
+
 class Renderer:
     """渲染器：从游戏状态（只读）渲染精灵和 HUD。"""
 
@@ -68,6 +71,8 @@ class Renderer:
         except (FileNotFoundError, pygame.error):
             print("Warning: Custom font not found. Using default.")
             self.font_small = pygame.font.Font(None, 24)
+        
+        self.enemy_renderer = EnemyRenderer(screen, assets)
         
         # 动画状态缓存：{ id(actor): {"state": str, "frame_index": int, "timer": float} }
         self.anim_cache = {}
@@ -191,6 +196,11 @@ class Renderer:
         # 检查是否是敌人（通过类型查表渲染）
         enemy_kind_tag = actor.get(EnemyKindTag)
         if enemy_kind_tag:
+            # 如果有 SpriteInfo，优先使用 EnemyRenderer (支持动画)
+            if actor.get(SpriteInfo):
+                self.enemy_renderer.render(actor, state)
+                return
+
             sprite_name, ox, oy = ENEMY_SPRITES.get(
                 enemy_kind_tag.kind, DEFAULT_ENEMY_SPRITE
             )
