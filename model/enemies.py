@@ -13,6 +13,7 @@ from .components import (
     CollisionLayer, Health,
     EnemyTag,
     EnemyDropConfig, EnemyKind, EnemyKindTag,
+    SpriteInfo,
 )
 
 # 敌人工厂注册表：使用装饰器自动注册 EnemyKind → spawn 函数
@@ -103,6 +104,15 @@ def spawn_fairy_small(
         power_count=1,
         point_count=0,
         scatter_radius=12.0,
+    ))
+
+    # 动画帧尺寸 (W / 4, H / 3)
+    # W ~ 261, H = 144
+    # Frame ~ 65x48
+    enemy.add(SpriteInfo(
+        name="enemy_fairy_small",
+        offset_x=-33, 
+        offset_y=-24, 
     ))
 
     state.add_actor(enemy)

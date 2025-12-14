@@ -86,8 +86,8 @@ def get_all_characters() -> List[CharacterPreset]:
 def _reimu_a() -> CharacterPreset:
     """博丽灵梦 A 型预设：直射平行弹 + 圆形炸弹"""
     return CharacterPreset(
-        name="博丽灵梦",
-        description="梦想封印风，直射平行弹 + 圆形炸弹",
+        name="樱羽艾玛",
+        description="「受厌恶之人」",
         speed_normal=220.0,
         speed_focus=120.0,
         collider_radius=3.0,
@@ -145,8 +145,8 @@ def _reimu_a() -> CharacterPreset:
 def _marisa_a() -> CharacterPreset:
     """雾雨魔理沙 A 型预设：窄角扩散弹 + 光束炸弹"""
     return CharacterPreset(
-        name="雾雨魔理沙",
-        description="恋符高火力，窄角扩散弹 + 光束炸弹",
+        name="二阶堂希罗",
+        description="正义的执行者（制作中）",
         speed_normal=240.0,
         speed_focus=130.0,
         collider_radius=3.0,

@@ -47,6 +47,7 @@ import model.bosses
 
 from view.assets import Assets
 from view.renderer import Renderer
+from view.pause_renderer import PauseRenderer
 
 
 class GameController:
@@ -68,9 +69,15 @@ class GameController:
         self.running = True
         self.quit_requested = False  # 窗口关闭请求（区别于返回菜单）
         self.accumulator = 0.0  # 时间累积器
+        
+        # Pause State
+        self.paused = False
+        self.pause_selection = 0
 
         self.assets = Assets()
         self.assets.load()
+        
+        self.pause_renderer = PauseRenderer(screen, self.assets)
 
         # 注册默认子弹原型
         register_default_archetypes()
@@ -131,6 +138,9 @@ class GameController:
             if event.type == pygame.QUIT:
                 self.running = False
                 self.quit_requested = True  # 标记为窗口关闭请求
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.paused = not self.paused
 
         keys = pygame.key.get_pressed()
         state["left"] = keys[pygame.K_LEFT]
@@ -231,6 +241,28 @@ class GameController:
         hud_data_system(self.state)
         stats_system(self.state)
 
+    def _handle_pause_input(self) -> None:
+        """处理暂停菜单输入"""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                self.quit_requested = True
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.paused = False # Resume
+                elif event.key == pygame.K_UP:
+                    self.pause_selection = (self.pause_selection - 1) % 3
+                elif event.key == pygame.K_DOWN:
+                    self.pause_selection = (self.pause_selection + 1) % 3
+                elif event.key in (pygame.K_z, pygame.K_RETURN, pygame.K_SPACE):
+                    if self.pause_selection == 0: # Resume
+                        self.paused = False
+                    elif self.pause_selection == 1: # Return to Title
+                        self.running = False # Exit game loop -> returns to MainMenu
+                    elif self.pause_selection == 2: # Quit Game
+                        self.running = False
+                        self.quit_requested = True
+
     def run(self) -> None:
         """主循环：使用 accumulator 模式实现固定时间步。"""
         while self.running:
@@ -238,6 +270,23 @@ class GameController:
             real_dt = self.clock.tick(TARGET_FPS) / 1000.0
             self.accumulator += real_dt
 
+            # ==========================
+            # 暂停逻辑 (Paused State)
+            # ==========================
+            if self.paused:
+                self._handle_pause_input()
+                self.accumulator = 0.0 # 暂停时不累积时间
+                
+                # 渲染: 游戏画面(不翻转) + 暂停覆盖 + 翻转
+                self.renderer.render(self.state, flip=False)
+                self.pause_renderer.render(self.pause_selection)
+                pygame.display.flip()
+                continue
+
+            # ==========================
+            # 运行逻辑 (Running State)
+            # ==========================
+            
             # 轮询输入（每帧一次，在逻辑 tick 之前）
             key_state = self._poll_input()
             self._write_input_component(key_state)
@@ -253,7 +302,7 @@ class GameController:
             if tick_count >= MAX_TICKS_PER_RENDER:
                 self.accumulator = 0.0
 
-            # 渲染
-            self.renderer.render(self.state)
+            # 渲染 (Normal Render with Flip)
+            self.renderer.render(self.state, flip=True)
 
         # 不在这里调用 pygame.quit()，让主循环控制退出

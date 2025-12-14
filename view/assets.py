@@ -13,7 +13,9 @@ class Assets:
 
     def __init__(self) -> None:
         self.images: dict[str, pygame.Surface] = {}
-        self.font_path = "assets/fonts/DotGothic16-Regular.ttf"
+        self.player_frames: dict[str, list[pygame.Surface]] = {}
+        self.enemy_sprites: dict[str, dict[str, list[pygame.Surface]]] = {}
+        self.font_path = "assets/fonts/OPPOSans-Bold.ttf"
 
     def load(self) -> None:
         # Load Character Sprite Sheet
@@ -60,7 +62,7 @@ class Assets:
             }
             print(f"Loaded sprite sheet: ema.png ({target_width}x{target_height} per frame)")
             
-        except FileNotFoundError:
+        except (FileNotFoundError, pygame.error):
             print("Warning: Sprite sheet assets/sprites/characters/ema.png not found. Using placeholders.")
             # player_default placeholder
             player_img = pygame.Surface((32, 32), pygame.SRCALPHA)
@@ -278,6 +280,79 @@ class Assets:
             pygame.draw.rect(surf, (255, 100, 100), (0,0,160,40), 2)
             self.images["ui_boss_title"] = surf
 
+        # ====== Main Menu Logo ======
+        try:
+            logo_img = pygame.image.load("assets/ui/logo.png").convert_alpha()
+            w, h = logo_img.get_size()
+            # Limit width if too large
+            if w > 600:
+                scale = 600 / w
+                logo_img = pygame.transform.smoothscale(logo_img, (600, int(h * scale)))
+            self.images["menu_logo"] = logo_img
+        except (FileNotFoundError, pygame.error):
+            pass # Key won't exist, main_menu will fallback to text
+
+        # ====== Main Menu Background (with Logo) ======
+        try:
+            bg_img = pygame.image.load("assets/ui/menu_bg.png").convert()
+            # Scale to Window Size (720x640)
+            self.images["menu_bg"] = pygame.transform.smoothscale(bg_img, (720, 640))
+        except (FileNotFoundError, pygame.error):
+            pass # Fallback to color fill
+
+        # ====== Menu Cursor ======
+        try:
+            cursor_img = pygame.image.load("assets/ui/menu_cursor.png").convert_alpha()
+            # Scale proportionally to Height 36 (match font size)
+            w, h = cursor_img.get_size()
+            target_h = 36
+            ratio = target_h / h
+            target_w = int(w * ratio)
+            self.images["menu_cursor"] = pygame.transform.smoothscale(cursor_img, (target_w, target_h))
+        except (FileNotFoundError, pygame.error):
+            pass
+
+        # ====== Character Portraits ======
+        # ====== Character Portraits ======
+        try:
+            img = pygame.image.load("assets/ui/ema.png").convert_alpha()
+            self.images["portrait_ema"] = img
+            # Generate Blur
+            w, h = img.get_size()
+            small = pygame.transform.smoothscale(img, (max(1, w // 10), max(1, h // 10)))
+            self.images["portrait_ema_blur"] = pygame.transform.smoothscale(small, (w, h))
+        except (FileNotFoundError, pygame.error):
+            # Fallback
+            s = pygame.Surface((400, 600), pygame.SRCALPHA)
+            s.fill((200, 50, 50, 200)) # Reddish
+            self.images["portrait_ema"] = s
+            self.images["portrait_ema_blur"] = s
+
+        try:
+            img = pygame.image.load("assets/ui/hero.png").convert_alpha()
+            self.images["portrait_hero"] = img
+            # Generate Blur
+            w, h = img.get_size()
+            small = pygame.transform.smoothscale(img, (max(1, w // 10), max(1, h // 10)))
+            self.images["portrait_hero_blur"] = pygame.transform.smoothscale(small, (w, h))
+        except (FileNotFoundError, pygame.error):
+            s = pygame.Surface((400, 600), pygame.SRCALPHA)
+            s.fill((220, 220, 50, 200)) # Yellowish
+            self.images["portrait_hero"] = s
+            self.images["portrait_hero_blur"] = s
+
+        # ====== Frame ======
+        try:
+            self.images["select_frame"] = pygame.image.load("assets/ui/select_frame.png").convert_alpha()
+        except (FileNotFoundError, pygame.error):
+            pass
+
+        # ====== Character Select Title ======
+        try:
+            self.images["select_title"] = pygame.image.load("assets/ui/select_title.png").convert_alpha()
+        except (FileNotFoundError, pygame.error):
+            pass
+
         # 3. Option Tracking Bullet (Unique)
         try:
             # assets/sprites/bullets/bullet_option.png
@@ -370,6 +445,8 @@ class Assets:
             self.images["option_reimu"] = option_default
             self.images["option_marisa"] = option_default
 
+        self._load_enemy_sprites()
+
     def get_image(self, name: str) -> pygame.Surface:
         """
         获取指定名称的精灵图。
@@ -382,3 +459,56 @@ class Assets:
         surf.fill((255, 0, 255))
         self.images[name] = surf
         return surf
+
+    def _load_enemy_sprites(self) -> None:
+        """Load and slice enemy sprites."""
+        # Fairy Small
+        path = "assets/sprites/enemies/fairy_small.png"
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+            
+            # Auto-scale large sheets
+            # Target frame height around 48px
+            # Original: 3 rows. Target Height = 48 * 3 = 144
+            
+            sw, sh = sheet.get_size()
+            rows, cols = 3, 4
+            
+            # If image is very large, scale it
+            if sh > 300:
+                target_frame_h = 48
+                target_h = target_frame_h * rows
+                scale_ratio = target_h / sh
+                target_w = int(sw * scale_ratio)
+                sheet = pygame.transform.smoothscale(sheet, (target_w, target_h))
+                sw, sh = target_w, target_h
+                
+            frame_w = sw // cols
+            frame_h = sh // rows
+            
+            frames_idle = []
+            frames_start = []
+            frames_loop = []
+            
+            for c in range(cols):
+                # Row 0: Idle
+                rect = pygame.Rect(c * frame_w, 0, frame_w, frame_h)
+                frames_idle.append(sheet.subsurface(rect))
+                
+                # Row 1: Start Move
+                rect = pygame.Rect(c * frame_w, frame_h, frame_w, frame_h)
+                frames_start.append(sheet.subsurface(rect))
+                
+                # Row 2: Loop Move
+                rect = pygame.Rect(c * frame_w, frame_h * 2, frame_w, frame_h)
+                frames_loop.append(sheet.subsurface(rect))
+                
+            self.enemy_sprites["enemy_fairy_small"] = {
+                "idle": frames_idle,
+                "start_move": frames_start,
+                "loop_move": frames_loop
+            }
+            print(f"Loaded enemy sprite: {path} ({sw}x{sh}) -> Frame {frame_w}x{frame_h}")
+            
+        except (FileNotFoundError, pygame.error) as e:
+            print(f"Failed to load enemy sprite {path}: {e}")
