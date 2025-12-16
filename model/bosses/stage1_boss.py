@@ -1637,7 +1637,12 @@ def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
     boss.add(EnemyKindTag(EnemyKind.BOSS))
     
     # Sprite
-    boss.add(SpriteInfo(name="ema"))  # 使用现有的 ema 精灵
+    boss.add(SpriteInfo(
+        name="enemy_boss",
+        offset_x=0,
+        offset_y=0,
+        visible=True
+    ))
     
     # Collision
     boss.add(Collider(
