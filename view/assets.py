@@ -589,8 +589,8 @@ class Assets:
            frame_w = sw // cols
            frame_h = sh // rows
            
-           # Target size: Same as Boss (approx height 96)
-           target_h = 96
+           # Target size: Larger than Boss (approx height 140)
+           target_h = 120
            scale_ratio = target_h / frame_h
            target_w = int(frame_w * scale_ratio)
            

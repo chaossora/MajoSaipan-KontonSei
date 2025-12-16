@@ -37,7 +37,8 @@ class BossRenderer:
                 "last_y": pos.y,  # 记录上一帧 Y 坐标
                 "stop_counter": 0, # 停止计时器 (用于防抖动)
                 "aura_timer": 0.0,
-                "aura_frame_idx": 0
+                "aura_frame_idx": 0,
+                "aura_angle": 0.0
             }
         
         anim = self.anim_states[aid]
@@ -170,13 +171,19 @@ class BossRenderer:
                 anim["aura_timer"] = 0.0
                 anim["aura_frame_idx"] = anim.get("aura_frame_idx", 0) + 1
             
+            # 更新旋转角度 (Snowflake Rotation)
+            # 每帧增加 2 度 (可调整速度)
+            anim["aura_angle"] = (anim.get("aura_angle", 0.0) + 2.0) % 360
+            
             aura_frames = self.assets.vfx["boss_aura"]
             if aura_frames:
                 idx = anim.get("aura_frame_idx", 0) % len(aura_frames)
                 aura_img = aura_frames[idx]
                 if aura_img:
-                     rect = aura_img.get_rect(center=(int(pos.x), int(pos.y)))
-                     self.screen.blit(aura_img, rect)
+                     # 旋转 (会自动调整 Surface 大小，需重新定位中心)
+                     rotated_aura = pygame.transform.rotate(aura_img, anim["aura_angle"])
+                     rect = rotated_aura.get_rect(center=(int(pos.x), int(pos.y)))
+                     self.screen.blit(rotated_aura, rect)
 
         # 5. 绘制
         frames = self._get_frames(sprite_info.name, target_state)
