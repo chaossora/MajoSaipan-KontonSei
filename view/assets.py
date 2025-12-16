@@ -15,6 +15,7 @@ class Assets:
         self.images: dict[str, pygame.Surface] = {}
         self.player_frames: dict[str, list[pygame.Surface]] = {}
         self.enemy_sprites: dict[str, dict[str, list[pygame.Surface]]] = {}
+        self.vfx: dict[str, list[pygame.Surface]] = {}
         self.font_path = "assets/fonts/OPPOSans-Bold.ttf"
 
     def load(self) -> None:
@@ -446,6 +447,8 @@ class Assets:
             self.images["option_marisa"] = option_default
 
         self._load_enemy_sprites()
+        self._load_boss_sprites()
+        self._load_vfx()
 
     def get_image(self, name: str) -> pygame.Surface:
         """
@@ -512,3 +515,94 @@ class Assets:
             
         except (FileNotFoundError, pygame.error) as e:
             print(f"Failed to load enemy sprite {path}: {e}")
+
+    def _load_boss_sprites(self) -> None:
+        """Load and slice boss sprites."""
+        # Boss (Generic or Specific)
+        path = "assets/sprites/enemies/boss.png"
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+            
+            # Bosses are larger, target frame height around 80-96px
+            target_frame_h = 96
+            rows, cols = 3, 4
+            sw, sh = sheet.get_size()
+            
+            # Auto-scale logic
+            expected_h = target_frame_h * rows
+            if abs(sh - expected_h) > 10: # If size mismatch significant
+               scale_ratio = expected_h / sh
+               target_w = int(sw * scale_ratio)
+               sheet = pygame.transform.smoothscale(sheet, (target_w, expected_h))
+               sw, sh = target_w, expected_h
+               
+            frame_w = sw // cols
+            frame_h = sh // rows
+            
+            # Row 0: Idle & Transition
+            # Frame 0: Static Idle (第一行第一帧用作待机)
+            rect_idle = pygame.Rect(0, 0, frame_w, frame_h)
+            frames_idle = [sheet.subsurface(rect_idle)]
+            
+            # Frame 1: Transition 1 (第一行第二帧)
+            rect_trans1 = pygame.Rect(frame_w, 0, frame_w, frame_h)
+            trans_frame1 = sheet.subsurface(rect_trans1)
+            
+            # Frame 2: Transition 2 (第一行第三帧 - 新增)
+            rect_trans2 = pygame.Rect(frame_w * 2, 0, frame_w, frame_h)
+            trans_frame2 = sheet.subsurface(rect_trans2)
+
+            frames_start_main = []
+            frames_loop = []
+            
+            for c in range(cols):
+                # Row 1 (Index 1): Start Move Main Frames (第二行)
+                rect = pygame.Rect(c * frame_w, frame_h, frame_w, frame_h)
+                frames_start_main.append(sheet.subsurface(rect))
+                
+                # Row 2 (Index 2): Loop Move (第三行)
+                rect = pygame.Rect(c * frame_w, frame_h * 2, frame_w, frame_h)
+                frames_loop.append(sheet.subsurface(rect))
+            
+            # Combine transition + start (第二、三帧并入起飞序列首部)
+            frames_start = [trans_frame1, trans_frame2] + frames_start_main
+
+            self.enemy_sprites["enemy_boss"] = {
+                "idle": frames_idle,
+                "start_move": frames_start,
+                "loop_move": frames_loop
+            }
+            print(f"Loaded boss sprite: {path} ({sw}x{sh}) -> Frame {frame_w}x{frame_h}")
+            
+        except (FileNotFoundError, pygame.error) as e:
+            print(f"Failed to load boss sprite {path}: {e}")
+
+    def _load_vfx(self) -> None:
+        """Load visual effects."""
+        # Boss Aura
+        # 2 Rows * 3 Cols = 6 Frames total.
+        path = "assets/sprites/vfx/boss_aura.png"
+        try:
+           sheet = pygame.image.load(path).convert_alpha()
+           sw, sh = sheet.get_size()
+           rows, cols = 2, 3
+           frame_w = sw // cols
+           frame_h = sh // rows
+           
+           # Target size: Same as Boss (approx height 96)
+           target_h = 96
+           scale_ratio = target_h / frame_h
+           target_w = int(frame_w * scale_ratio)
+           
+           frames = []
+           for r in range(rows):
+               for c in range(cols):
+                   rect = pygame.Rect(c*frame_w, r*frame_h, frame_w, frame_h)
+                   surface = sheet.subsurface(rect)
+                   scaled = pygame.transform.smoothscale(surface, (target_w, target_h))
+                   frames.append(scaled)
+           
+           self.vfx["boss_aura"] = frames
+           print(f"Loaded VFX: {path} -> {len(frames)} frames (Scaled to {target_w}x{target_h})")
+        except (FileNotFoundError, pygame.error) as e:
+           print(f"Failed to load VFX {path}: {e}")

@@ -233,3 +233,52 @@ def spawn_midboss(
         _attach_behavior(state, enemy, behavior, rng)
     
     return enemy
+
+
+@enemy_registry.register(EnemyKind.BOSS)
+def spawn_boss(
+    state: GameState,
+    x: float,
+    y: float,
+    hp: int = 500,
+    behavior: Optional[Callable[..., Generator[int, None, None]]] = None,
+    rng: Optional[Random] = None,
+) -> Actor:
+    """
+    关卡 Boss：高血量，特定贴图
+    """
+    enemy = Actor()
+
+    enemy.add(Position(x, y))
+    enemy.add(Velocity(Vector2(0, 0)))
+    enemy.add(EnemyTag())
+    enemy.add(EnemyKindTag(EnemyKind.BOSS))
+    enemy.add(Health(max_hp=hp, hp=hp))
+
+    enemy.add(Collider(
+        radius=32.0,
+        layer=CollisionLayer.ENEMY,
+        mask=CollisionLayer.PLAYER_BULLET,
+    ))
+    
+    # Boss 贴图：预期 96px 高度
+    enemy.add(SpriteInfo(
+        name="enemy_boss",
+        offset_x=-48,
+        offset_y=-48,
+        visible=True
+    ))
+
+    # 掉落配置
+    enemy.add(EnemyDropConfig(
+        power_count=20,
+        point_count=20,
+        scatter_radius=64.0,
+    ))
+
+    state.add_actor(enemy)
+    
+    if behavior is not None:
+        _attach_behavior(state, enemy, behavior, rng)
+    
+    return enemy

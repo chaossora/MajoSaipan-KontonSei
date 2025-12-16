@@ -57,6 +57,7 @@ DEFAULT_ENEMY_BULLET_SPRITE = ("enemy_bullet_basic", -4, -4)
 
 
 from view.enemy_renderer import EnemyRenderer
+from view.boss_renderer import BossRenderer
 
 
 class Renderer:
@@ -74,6 +75,7 @@ class Renderer:
             self.font_small = pygame.font.Font(None, 24)
         
         self.enemy_renderer = EnemyRenderer(screen, assets)
+        self.boss_renderer = BossRenderer(screen, assets)
         
         # 动画状态缓存：{ id(actor): {"state": str, "frame_index": int, "timer": float} }
         self.anim_cache = {}
@@ -134,7 +136,34 @@ class Renderer:
         self.screen.blit(self.glow_surface, (0, 0))
 
         # Pass 2: 绘制所有游戏对象主体 (Main Pass)
+        # 分层渲染：普通 -> 子弹 -> Boss (Boss > Bullets 要求)
+        layer_boss = []
+        layer_bullet = []
+        layer_normal = []
+        
         for actor in state.actors:
+            # Boss
+            ek = actor.get(EnemyKindTag)
+            if ek and ek.kind == EnemyKind.BOSS:
+                layer_boss.append(actor)
+                continue
+            
+            # Bullets
+            if actor.get(PlayerBulletKindTag) or actor.get(EnemyBulletKindTag):
+                layer_bullet.append(actor)
+                continue
+            
+            # Others
+            layer_normal.append(actor)
+            
+        # 绘制顺序
+        for actor in layer_normal:
+            self._draw_actor(actor, state)
+            
+        for actor in layer_bullet:
+            self._draw_actor(actor, state)
+            
+        for actor in layer_boss:
             self._draw_actor(actor, state)
 
         # 绘制子机（在玩家精灵之上）
@@ -225,6 +254,12 @@ class Renderer:
         # 检查是否是敌人（通过类型查表渲染）
         enemy_kind_tag = actor.get(EnemyKindTag)
         if enemy_kind_tag:
+            # 优先处理 Boss
+            if enemy_kind_tag.kind == EnemyKind.BOSS:
+                 if actor.get(SpriteInfo):
+                     self.boss_renderer.render(actor, state)
+                     return
+            
             # 如果有 SpriteInfo，优先使用 EnemyRenderer (支持动画)
             if actor.get(SpriteInfo):
                 self.enemy_renderer.render(actor, state)
