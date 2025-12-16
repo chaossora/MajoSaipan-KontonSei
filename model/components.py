@@ -87,6 +87,13 @@ class BulletGrazeState:
     grazed: bool = False
 
 
+@dataclass
+class BulletBounce:
+    """子弹边界反弹组件。"""
+    max_bounces: int = 1      # 最大反弹次数
+    bounce_count: int = 0     # 已反弹次数
+
+
 class PlayerBulletKind(Enum):
     """
     玩家子弹类型（Model 层只标记类型，View 层根据类型查表渲染）。
