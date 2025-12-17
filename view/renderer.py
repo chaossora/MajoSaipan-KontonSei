@@ -41,7 +41,8 @@ DEFAULT_BULLET_SPRITE = ("player_bullet_basic", -4, -8)
 ENEMY_SPRITES: dict[EnemyKind, tuple[str, int, int]] = {
     # 类型: (精灵名, X偏移, Y偏移)
     EnemyKind.FAIRY_SMALL: ("enemy_fairy_small", -16, -16),
-    EnemyKind.FAIRY_LARGE: ("enemy_fairy_large", -20, -20),
+    # Frame 88x64 -> Center (-44, -32)
+    EnemyKind.FAIRY_LARGE: ("enemy_fairy_large", -44, -32),
     EnemyKind.MIDBOSS: ("enemy_midboss", -32, -32),
     EnemyKind.BOSS: ("enemy_boss", -32, -32),
 }

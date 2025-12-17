@@ -520,6 +520,54 @@ class Assets:
         except (FileNotFoundError, pygame.error) as e:
             print(f"Failed to load enemy sprite {path}: {e}")
 
+        # Fairy Large (Medium)
+        path = "assets/sprites/enemies/fairy_large.png"
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+            sw, sh = sheet.get_size()
+            rows, cols = 3, 4
+            
+            # Use larger target size for "Large/Medium" fairy
+            # Small was 48px height. Let's try 64px or keep original if reasonable.
+            # If explicit scaling needed:
+            if sh > 400: # Scale down if huge
+                target_frame_h = 64
+                target_h = target_frame_h * rows
+                scale_ratio = target_h / sh
+                target_w = int(sw * scale_ratio)
+                sheet = pygame.transform.smoothscale(sheet, (target_w, target_h))
+                sw, sh = target_w, target_h
+                
+            frame_w = sw // cols
+            frame_h = sh // rows
+            
+            frames_idle = []
+            frames_start = []
+            frames_loop = []
+            
+            for c in range(cols):
+                # Row 0: Idle
+                rect = pygame.Rect(c * frame_w, 0, frame_w, frame_h)
+                frames_idle.append(sheet.subsurface(rect))
+                
+                # Row 1: Start Move
+                rect = pygame.Rect(c * frame_w, frame_h, frame_w, frame_h)
+                frames_start.append(sheet.subsurface(rect))
+                
+                # Row 2: Loop Move
+                rect = pygame.Rect(c * frame_w, frame_h * 2, frame_w, frame_h)
+                frames_loop.append(sheet.subsurface(rect))
+                
+            self.enemy_sprites["enemy_fairy_large"] = {
+                "idle": frames_idle,
+                "start_move": frames_start,
+                "loop_move": frames_loop
+            }
+            print(f"Loaded enemy sprite: {path} ({sw}x{sh}) -> Frame {frame_w}x{frame_h}")
+            
+        except (FileNotFoundError, pygame.error) as e:
+            print(f"Failed to load enemy sprite {path}: {e}")
+
     def _load_boss_sprites(self) -> None:
         """Load and slice boss sprites."""
         # Boss (Generic or Specific)

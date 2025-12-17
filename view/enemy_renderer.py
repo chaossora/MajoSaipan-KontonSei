@@ -107,7 +107,8 @@ class EnemyRenderer:
                 image = pygame.transform.flip(image, True, False)
                 
             # 绘制中心对齐
-            rect = image.get_rect(center=(int(pos.x + sprite_info.offset_x), int(pos.y + sprite_info.offset_y)))
+            # 绘制 (Offset 是 TopLeft 相对 Position 的偏移)
+            rect = image.get_rect(topleft=(int(pos.x + sprite_info.offset_x), int(pos.y + sprite_info.offset_y)))
             self.screen.blit(image, rect)
             
     def _get_frames(self, sprite_name: str, state: str) -> list[pygame.Surface]:
