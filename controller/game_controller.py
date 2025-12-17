@@ -38,6 +38,7 @@ from model.systems.motion_program_system import motion_program_system
 from model.systems.homing_bullet_system import homing_bullet_system
 from model.systems.laser_collision_system import laser_collision_system
 from model.systems.laser_motion_system import laser_motion_system
+from model.systems.vfx_system import vfx_system
 from model.stages.stage1 import setup_stage1
 from model.enemies import spawn_fairy_small, spawn_fairy_large, spawn_midboss
 from model.scripting.archetype import register_default_archetypes
@@ -107,6 +108,9 @@ class GameController:
 
         # 初始化第一关时间线
         setup_stage1(self.state)
+        
+        # 播放背景音乐
+        self.assets.play_music("stage1")
 
         # 生成测试用掉落物
         spawn_item(
@@ -140,7 +144,9 @@ class GameController:
                 self.quit_requested = True  # 标记为窗口关闭请求
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.paused = not self.paused
+                    self.paused = True
+                    pygame.mixer.music.pause()
+                    self.assets.play_sfx("pause")
 
         keys = pygame.key.get_pressed()
         state["left"] = keys[pygame.K_LEFT]
@@ -188,7 +194,9 @@ class GameController:
         # 1. 玩家移动、子机、射击、敌人射击
         player_move_system(self.state, dt)
         option_system(self.state, dt)  # 子机位置更新：在移动后、射击前
-        player_shoot_system(self.state, dt)
+        if player_shoot_system(self.state, dt):
+            if "player_shot" in self.assets.sfx:
+                self.assets.sfx["player_shot"].play()
 
         # PoC 系统：更新点收集线激活标记
         poc_system(self.state)
@@ -237,6 +245,7 @@ class GameController:
 
         # 6. 渲染前更新 HUD 和统计数据
         render_hint_system(self.state)
+        vfx_system(self.state, dt) # Run Animation updates
         boss_hud_system(self.state, dt)  # Boss HUD 数据聚合更新
         hud_data_system(self.state)
         stats_system(self.state)
@@ -250,6 +259,7 @@ class GameController:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.paused = False # Resume
+                    pygame.mixer.music.unpause()
                 elif event.key == pygame.K_UP:
                     self.pause_selection = (self.pause_selection - 1) % 3
                 elif event.key == pygame.K_DOWN:
@@ -257,11 +267,50 @@ class GameController:
                 elif event.key in (pygame.K_z, pygame.K_RETURN, pygame.K_SPACE):
                     if self.pause_selection == 0: # Resume
                         self.paused = False
+                        pygame.mixer.music.unpause()
                     elif self.pause_selection == 1: # Return to Title
                         self.running = False # Exit game loop -> returns to MainMenu
+                        pygame.mixer.music.stop()
                     elif self.pause_selection == 2: # Quit Game
                         self.running = False
                         self.quit_requested = True
+                        pygame.mixer.music.stop()
+
+    def _update_cutin(self, dt: float) -> None:
+        """Update cut-in animation state."""
+        cutin = self.state.cutin
+        
+        # Duration match renderer
+        DURATION_ENTER = 0.8
+        DURATION_HOLD = 1.0
+        # DURATION_EXIT = 0.5 # Used implicitly
+        
+        # 1. First Frame Logic (Stop Music)
+        if cutin.stage == 0 and cutin.timer == 0.0:
+            if cutin.control_bgm:
+                self.assets.play_music("stop")
+            
+        cutin.timer += dt
+        
+        if cutin.stage == 0: # Enter
+            if cutin.timer >= DURATION_ENTER:
+                cutin.stage = 1
+                cutin.timer = 0.0
+                
+        elif cutin.stage == 1: # Hold
+            if cutin.timer >= DURATION_HOLD:
+                cutin.stage = 2
+                cutin.timer = 0.0
+                
+        elif cutin.stage == 2: # Exit
+            # DURATION_EXIT = 0.5
+            if cutin.timer >= 0.5:
+                cutin.active = False
+                # Cut-in finished
+                # Start Boss Music after fade out
+                if cutin.control_bgm:
+                    self.assets.play_music("boss")
+
 
     def run(self) -> None:
         """主循环：使用 accumulator 模式实现固定时间步。"""
@@ -284,6 +333,16 @@ class GameController:
                 continue
 
             # ==========================
+            # Boss Cut-in Logic
+            # ==========================
+            if self.state.cutin.active:
+                self._update_cutin(real_dt)
+                self.accumulator = 0.0 # Don't accumulate game logic time
+                self.renderer.render(self.state, flip=True)
+                continue
+
+
+            # ==========================
             # 运行逻辑 (Running State)
             # ==========================
             
@@ -295,6 +354,18 @@ class GameController:
             tick_count = 0
             while self.accumulator >= FIXED_DT and tick_count < MAX_TICKS_PER_RENDER:
                 self._logic_tick(FIXED_DT)
+                
+                # Check for BGM request
+                if self.state.bgm_request:
+                    self.assets.play_music(self.state.bgm_request)
+                    self.state.bgm_request = None
+                
+                # Check for SFX requests
+                if self.state.sfx_requests:
+                    for sfx_name in self.state.sfx_requests:
+                        self.assets.play_sfx(sfx_name)
+                    self.state.sfx_requests.clear()
+                
                 self.accumulator -= FIXED_DT
                 tick_count += 1
 

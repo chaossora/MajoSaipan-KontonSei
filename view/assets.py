@@ -16,6 +16,7 @@ class Assets:
         self.player_frames: dict[str, list[pygame.Surface]] = {}
         self.enemy_sprites: dict[str, dict[str, list[pygame.Surface]]] = {}
         self.vfx: dict[str, list[pygame.Surface]] = {}
+        self.sfx: dict[str, pygame.mixer.Sound] = {}
         self.font_path = "assets/fonts/OPPOSans-Bold.ttf"
 
     def load(self) -> None:
@@ -448,7 +449,10 @@ class Assets:
 
         self._load_enemy_sprites()
         self._load_boss_sprites()
+        self._load_items()
+        self._load_bullets()
         self._load_vfx()
+        self._load_audio()
 
     def get_image(self, name: str) -> pygame.Surface:
         """
@@ -507,6 +511,54 @@ class Assets:
                 frames_loop.append(sheet.subsurface(rect))
                 
             self.enemy_sprites["enemy_fairy_small"] = {
+                "idle": frames_idle,
+                "start_move": frames_start,
+                "loop_move": frames_loop
+            }
+            print(f"Loaded enemy sprite: {path} ({sw}x{sh}) -> Frame {frame_w}x{frame_h}")
+            
+        except (FileNotFoundError, pygame.error) as e:
+            print(f"Failed to load enemy sprite {path}: {e}")
+
+        # Fairy Large (Medium)
+        path = "assets/sprites/enemies/fairy_large.png"
+        try:
+            sheet = pygame.image.load(path).convert_alpha()
+            sw, sh = sheet.get_size()
+            rows, cols = 3, 4
+            
+            # Use larger target size for "Large/Medium" fairy
+            # Small was 48px height. Let's try 64px or keep original if reasonable.
+            # If explicit scaling needed:
+            if sh > 400: # Scale down if huge
+                target_frame_h = 64
+                target_h = target_frame_h * rows
+                scale_ratio = target_h / sh
+                target_w = int(sw * scale_ratio)
+                sheet = pygame.transform.smoothscale(sheet, (target_w, target_h))
+                sw, sh = target_w, target_h
+                
+            frame_w = sw // cols
+            frame_h = sh // rows
+            
+            frames_idle = []
+            frames_start = []
+            frames_loop = []
+            
+            for c in range(cols):
+                # Row 0: Idle
+                rect = pygame.Rect(c * frame_w, 0, frame_w, frame_h)
+                frames_idle.append(sheet.subsurface(rect))
+                
+                # Row 1: Start Move
+                rect = pygame.Rect(c * frame_w, frame_h, frame_w, frame_h)
+                frames_start.append(sheet.subsurface(rect))
+                
+                # Row 2: Loop Move
+                rect = pygame.Rect(c * frame_w, frame_h * 2, frame_w, frame_h)
+                frames_loop.append(sheet.subsurface(rect))
+                
+            self.enemy_sprites["enemy_fairy_large"] = {
                 "idle": frames_idle,
                 "start_move": frames_start,
                 "loop_move": frames_loop
@@ -642,3 +694,150 @@ class Assets:
            print(f"Loaded VFX: {path} -> {len(frames)} frames (Scaled to {target_w}x{target_h})")
         except (FileNotFoundError, pygame.error) as e:
            print(f"Failed to load VFX {path}: {e}")
+
+        # Explosion
+        # 1 Row * 8 Cols = 8 Frames total.
+        path = "assets/sprites/vfx/explosion.png"
+        try:
+           sheet = pygame.image.load(path).convert_alpha()
+           sw, sh = sheet.get_size()
+           cols = 8
+           frame_w = sw // cols
+           frame_h = sh
+           
+           frames = []
+           target_size = (64, 64) # User requested smaller size
+           for c in range(cols):
+               rect = pygame.Rect(c*frame_w, 0, frame_w, frame_h)
+               surface = sheet.subsurface(rect)
+               scaled = pygame.transform.smoothscale(surface, target_size)
+               frames.append(scaled)
+               # Register for SpriteInfo access
+               self.images[f"explosion_{c}"] = scaled
+           
+           self.vfx["explosion"] = frames
+           print(f"Loaded VFX: {path} -> {len(frames)} frames (Scaled to {target_size})")
+        except (FileNotFoundError, pygame.error) as e:
+           print(f"Failed to load VFX {path}: {e}")
+
+        # Boss Cut-in
+        try:
+            # Try PNG first
+            cutin_path = "assets/ui/boss_cutin.png"
+            try:
+                cutin_img = pygame.image.load(cutin_path).convert_alpha()
+            except (FileNotFoundError, pygame.error):
+                # Fallback to JPG
+                cutin_path = "assets/ui/boss_cutin.jpg"
+                cutin_img = pygame.image.load(cutin_path).convert_alpha()
+            
+            self.images["boss_cutin"] = cutin_img
+            print(f"Loaded Boss Cut-in: {cutin_path}")
+        except (FileNotFoundError, pygame.error):
+            print("Warning: boss_cutin.png/jpg not found. Using placeholder.")
+            s = pygame.Surface((480, 200), pygame.SRCALPHA)
+            s.fill((255, 0, 0, 128))
+            pygame.draw.rect(s, (255, 255, 255), (0, 0, 480, 200), 5)
+            self.images["boss_cutin"] = s
+
+    def _load_items(self) -> None:
+        """Load item sprites."""
+        # Item definitions: (name, filename, target_size)
+        items = [
+            ("item_exp_small", "assets/sprites/items/item_exp_small.png", (24, 24)),
+            ("item_exp_large", "assets/sprites/items/item_exp_large.png", (32, 32)),
+        ]
+        
+        for name, path, size in items:
+            try:
+                img = pygame.image.load(path).convert_alpha()
+                # Smoothscale to target size
+                scaled = pygame.transform.smoothscale(img, size)
+                self.images[name] = scaled
+                print(f"Loaded item: {path} -> Scaled to {size}")
+            except (FileNotFoundError, pygame.error) as e:
+                print(f"Failed to load item {path}: {e}")
+                # Fallback: Simple colored circle
+                fallback = pygame.Surface(size, pygame.SRCALPHA)
+                color = (0, 0, 255) if "small" in name else (255, 255, 0)
+                pygame.draw.circle(fallback, color, (size[0]//2, size[1]//2), size[0]//2)
+                self.images[name] = fallback
+
+    def _load_bullets(self) -> None:
+        """Load additional bullet sprites."""
+        # Boss Bullets
+        bullets = [
+            ("boss_bullet_blue", "assets/sprites/bullets/boss_bullet_small.png", (20, 20)),
+            ("boss_bullet_red", "assets/sprites/bullets/boss_bullet_large.png", (20, 20)),
+        ]
+        
+        for name, path, size in bullets:
+            try:
+                img = pygame.image.load(path).convert_alpha()
+                scaled = pygame.transform.smoothscale(img, size)
+                self.images[name] = scaled
+                print(f"Loaded bullet: {path} -> Scaled to {size}")
+            except (FileNotFoundError, pygame.error) as e:
+                print(f"Failed to load bullet {path}: {e}")
+                surf = pygame.Surface(size, pygame.SRCALPHA)
+                color = (0, 0, 255) if "blue" in name else (255, 0, 0)
+                pygame.draw.circle(surf, color, (size[0]//2, size[1]//2), size[0]//2 - 2)
+                self.images[name] = surf
+
+    def _load_audio(self) -> None:
+        """Load audio assets (SFX)."""
+        sfx_list = [
+            ("player_shot", "assets/sfx/player_shot.wav"),
+            ("enemy_damage", "assets/sfx/enemy_damage.wav"),
+            ("pause", "assets/sfx/pause.wav"),
+            ("item_get", "assets/sfx/item_get.wav"),
+            ("explosion", "assets/sfx/explosion.wav"),
+        ]
+        
+        for name, path in sfx_list:
+            try:
+                sound = pygame.mixer.Sound(path)
+                if name == "player_shot":
+                    sound.set_volume(0.05)
+                elif name == "item_get":
+                    sound.set_volume(0.1)
+                elif name == "explosion":
+                    sound.set_volume(0.15) # Slightly lower than default 0.2
+                else:
+                    sound.set_volume(0.2)
+                self.sfx[name] = sound
+                print(f"Loaded SFX: {path}")
+            except (FileNotFoundError, pygame.error) as e:
+                print(f"Failed to load SFX {path}: {e}")
+
+    def play_music(self, name: str) -> None:
+        """Play background music by name."""
+        music_paths = {
+            "stage1": "assets/bgm/stage1_theme.flac",
+            "boss": "assets/bgm/boss_theme.flac",
+        }
+        
+        if name == "stop":
+            pygame.mixer.music.stop()
+            print("Music stopped")
+            return
+        
+        if name in music_paths:
+            path = music_paths[name]
+            try:
+                pygame.mixer.music.load(path)
+                pygame.mixer.music.set_volume(0.2) # Background music volume
+                pygame.mixer.music.play(-1) # Loop indefinitely
+                print(f"Playing music: {path}")
+            except pygame.error as e:
+                print(f"Failed to play music {path}: {e}")
+        else:
+            print(f"Music track not found: {name}")
+
+    def play_sfx(self, name: str) -> None:
+        """Play sound effect by name."""
+        if name in self.sfx:
+            self.sfx[name].play()
+        else:
+            # Silent fail for missing sfx to avoid spam
+            pass

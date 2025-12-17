@@ -25,7 +25,7 @@ def collision_damage_system(state: GameState, dt: float) -> None:
     to_remove: Set[Actor] = set()
 
     for ev in events.player_bullet_hits_enemy:
-        _apply_player_bullet_hits_enemy(ev, to_remove)
+        _apply_player_bullet_hits_enemy(state, ev, to_remove)
 
     for ev in events.enemy_bullet_hits_player:
         _apply_enemy_bullet_hits_player(ev, to_remove)
@@ -34,7 +34,8 @@ def collision_damage_system(state: GameState, dt: float) -> None:
         state.remove_actor(actor)
 
 
-def _apply_player_bullet_hits_enemy(ev: PlayerBulletHitEnemy,
+def _apply_player_bullet_hits_enemy(state: GameState,
+                                    ev: PlayerBulletHitEnemy,
                                     to_remove: Set[Actor]) -> None:
     bullet = ev.bullet
     enemy = ev.enemy
@@ -63,6 +64,13 @@ def _apply_player_bullet_hits_enemy(ev: PlayerBulletHitEnemy,
 
     health.hp -= damage
     to_remove.add(bullet)
+
+    # Trigger Hit SFX
+    # Trigger Hit SFX
+    if damage > 0:
+        # Simple dedup: Only add one "enemy_damage" request per frame
+        if "enemy_damage" not in state.sfx_requests:
+            state.sfx_requests.append("enemy_damage")
 
     if health.hp <= 0:
         # Boss 死亡由 Task 脚本处理，此处不添加 EnemyJustDied

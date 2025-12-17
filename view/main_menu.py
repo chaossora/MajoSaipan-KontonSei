@@ -584,6 +584,14 @@ class MainMenu:
         
         clock = pygame.time.Clock()
         
+        # Play Menu BGM
+        try:
+            pygame.mixer.music.load("assets/bgm/menu_theme.flac")
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play(-1, fade_ms=500)
+        except (pygame.error, FileNotFoundError) as e:
+            print(f"Failed to play menu BGM: {e}")
+        
         while True:
             dt = clock.tick(60) / 1000.0
             

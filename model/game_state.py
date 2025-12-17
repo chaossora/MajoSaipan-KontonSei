@@ -82,6 +82,24 @@ class EntityStats:
 
 
 @dataclass
+class CutinState:
+    """Boss 立绘切入动画状态"""
+    active: bool = False
+    timer: float = 0.0
+    stage: int = 0  # 0: ENTER (Flash in), 1: HOLD, 2: EXIT (Fade out)
+    portrait_name: str = "boss_cutin" 
+    control_bgm: bool = True # Whether to stop/resume music
+
+    def start(self, name: str = "boss_cutin", control_bgm: bool = True) -> None:
+        self.active = True
+        self.timer = 0.0
+        self.stage = 0
+        self.portrait_name = name
+        self.control_bgm = control_bgm
+
+
+
+@dataclass
 class GameState:
     """
     纯逻辑世界：
@@ -91,6 +109,15 @@ class GameState:
     """
 
     actors: List[Actor] = field(default_factory=list)
+    # 渲染提示
+    render_hints: list[RenderHint] = field(default_factory=list)
+    
+    # BGM 请求 (由脚本设置，控制器读取)
+    # BGM 请求 (由脚本设置，控制器读取)
+    bgm_request: Optional[str] = None
+    # SFX 请求队列 (由系统设置，控制器读取并清空)
+    sfx_requests: List[str] = field(default_factory=list)
+
     player: Optional[Actor] = None
 
     time: float = 0.0  # 已用游戏时间（秒）
@@ -118,6 +145,10 @@ class GameState:
 
     # 游戏结束标志（玩家残机 <= 0）
     game_over: bool = False
+
+    # Boss Cut-in 状态
+    cutin: CutinState = field(default_factory=CutinState)
+
 
     def __post_init__(self) -> None:
         # 初始化缺少的默认资源
@@ -474,15 +505,18 @@ def spawn_item(
     item.add(ItemTag())
 
     if item_type == ItemType.POWER:
-        sprite_name = "item_power"
+        sprite_name = "item_exp_small"
+        off = -12
     elif item_type == ItemType.POINT:
-        sprite_name = "item_point"
+        sprite_name = "item_exp_large"
+        off = -16
     else:
-        sprite_name = "item_power"
+        sprite_name = "item_exp_small"
+        off = -12
 
     item.add(Collider(radius=pickup_radius, layer=CollisionLayer.ITEM, mask=CollisionLayer.PLAYER))
 
-    item.add(SpriteInfo(name=sprite_name, offset_x=-8, offset_y=-8))
+    item.add(SpriteInfo(name=sprite_name, offset_x=off, offset_y=off))
 
     item.add(Lifetime(time_left=lifetime))
 

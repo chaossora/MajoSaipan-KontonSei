@@ -170,6 +170,13 @@ def spawn_fairy_large(
         scatter_radius=18.0,
     ))
 
+    # Frame 88x64 -> Center (-44, -32)
+    enemy.add(SpriteInfo(
+        name="enemy_fairy_large",
+        offset_x=-44, 
+        offset_y=-32, 
+    ))
+
     state.add_actor(enemy)
     
     # Attach behavior Task if provided

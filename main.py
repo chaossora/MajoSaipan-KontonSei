@@ -61,6 +61,8 @@ def main():
     display_height = 640
     screen = pygame.display.set_mode((display_width, display_height))
     pygame.display.set_caption("東方混沌勢 ~ Touhou KontonSei")
+    # Increase audio channels to handle intense SFX
+    pygame.mixer.set_num_channels(32)
 
     # 如果指定了角色且跳过菜单，直接开始
     character_id = _parse_character_id(args.character)

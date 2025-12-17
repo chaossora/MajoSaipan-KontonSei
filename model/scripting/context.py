@@ -803,9 +803,16 @@ class TaskContext:
         阶段转换：清屏 + 无敌 + 等待 + 重置攻击动画。
         
         Args:
-            frames: 转换等待帧数
+            frames: 转换持续帧数
         """
-        from model.components import BossAttackAnimation
+        from model.components import BossState, BossAttackAnimation
+
+        # 触发 Cut-in (如果 Boss 设置了图片)
+        # 阶段转换时，我们不希望打断音乐 (control_bgm=False)
+        if self.owner:
+            boss_state = self.owner.get(BossState)
+            if boss_state and boss_state.cutin_image:
+                self.state.cutin.start(boss_state.cutin_image, control_bgm=False)
 
         self.clear_bullets()
         self.set_invulnerable(True)
@@ -821,6 +828,15 @@ class TaskContext:
             yield 1  # 每帧执行（LuaSTG 风格）
         
         self.set_invulnerable(False)
+
+    def set_bgm(self, name: str) -> None:
+        """
+        设置背景音乐。
+        
+        Args:
+            name: 音乐名称（在 assets 中定义），"stop" 为停止
+        """
+        self.state.bgm_request = name
     
     def kill_boss(self) -> None:
         """

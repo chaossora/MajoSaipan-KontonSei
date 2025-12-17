@@ -59,6 +59,24 @@ class Collider:
 
 
 @dataclass
+class VfxTag:
+    """Tag for VFX entities."""
+    pass
+
+
+@dataclass
+class Animation:
+    """Simple animation component."""
+    base_name: str
+    total_frames: int
+    duration: float  # Seconds per frame
+    timer: float = 0.0
+    current_frame: int = 0
+    loop: bool = False
+    auto_remove: bool = True
+
+
+@dataclass
 class Health:
     max_hp: int
     hp: int
@@ -278,6 +296,8 @@ class EnemyKindTag:
 class EnemyBulletKind(Enum):
     """敌人子弹种类 - View 层根据此枚举查表获取精灵"""
     BASIC = auto()
+    BOSS_BLUE = auto()
+    BOSS_RED = auto()
     # 未来可扩展更多类型，如 LARGE, AIMED, LASER 等
 
 
@@ -408,6 +428,9 @@ class BossState:
     # Bomb 抗性配置（东方风格机制）
     bomb_damage_cap: int = 1              # 每帧最大 Bomb 伤害
     bomb_spell_immune: bool = False        # 符卡期间是否完全免疫 Bomb
+
+    # Cut-in Configuration
+    cutin_image: Optional[str] = "boss_cutin" # Cut-in image resource name
 
 
 @dataclass

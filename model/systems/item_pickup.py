@@ -42,3 +42,7 @@ def item_pickup_system(state: GameState, dt: float) -> None:
 
     for item_actor in consumed_items:
         state.remove_actor(item_actor)
+
+    if consumed_items:
+         if "item_get" not in state.sfx_requests:
+            state.sfx_requests.append("item_get")

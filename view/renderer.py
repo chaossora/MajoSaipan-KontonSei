@@ -41,7 +41,8 @@ DEFAULT_BULLET_SPRITE = ("player_bullet_basic", -4, -8)
 ENEMY_SPRITES: dict[EnemyKind, tuple[str, int, int]] = {
     # 类型: (精灵名, X偏移, Y偏移)
     EnemyKind.FAIRY_SMALL: ("enemy_fairy_small", -16, -16),
-    EnemyKind.FAIRY_LARGE: ("enemy_fairy_large", -20, -20),
+    # Frame 88x64 -> Center (-44, -32)
+    EnemyKind.FAIRY_LARGE: ("enemy_fairy_large", -44, -32),
     EnemyKind.MIDBOSS: ("enemy_midboss", -32, -32),
     EnemyKind.BOSS: ("enemy_boss", -32, -32),
 }
@@ -49,9 +50,13 @@ DEFAULT_ENEMY_SPRITE = ("enemy_basic", -16, -16)
 
 
 # ====== 敌人子弹类型 → 精灵映射表 ======
+# ====== 敌人子弹类型 → 精灵映射表 ======
 ENEMY_BULLET_SPRITES: dict[EnemyBulletKind, tuple[str, int, int]] = {
     # 类型: (精灵名, X偏移, Y偏移)
     EnemyBulletKind.BASIC: ("enemy_bullet_basic", -4, -4),
+    # Boss 子弹 (20x20 -> Center -10, -10)
+    EnemyBulletKind.BOSS_BLUE: ("boss_bullet_blue", -10, -10),
+    EnemyBulletKind.BOSS_RED: ("boss_bullet_red", -10, -10),
 }
 DEFAULT_ENEMY_BULLET_SPRITE = ("enemy_bullet_basic", -4, -4)
 
@@ -180,6 +185,10 @@ class Renderer:
 
         # 玩家 HUD (移至侧边栏)
         self._render_hud(state)
+
+        # Cut-in Animation (Overlay)
+        if state.cutin.active:
+            self._render_cutin(state)
 
         if flip:
             pygame.display.flip()
@@ -612,9 +621,103 @@ class Renderer:
         if not boss_hud:
             return
 
+    def _render_cutin(self, state: GameState) -> None:
+        """Render Boss Cut-in animation overlay."""
+        cutin = state.cutin
+        
+        # Duration Constants (Should match Controller logic)
+        DURATION_ENTER = 0.8
+        DURATION_HOLD = 1.0
+        DURATION_EXIT = 0.5
+        
+        # Overlay removed as per user request (no dark/blur background)
+
+        # 2. Portrait
+        img = self.assets.get_image(cutin.portrait_name)
+        if not img:
+            return
+            
+        # Layout: Horizontal Portrait usually across the screen or eyes.
+        # Assuming 480 width.
+        
+        # Entrance Animation: Slide from Right to Left? Or Scale?
+        # User said "Flash out" (appear suddenly).
+        # Let's do a quick slide + fade in.
+        
+        iw, ih = img.get_size()
+        # Scale if too big for width
+        if iw > state.width:
+            ratio = state.width / iw
+            iw = state.width
+            ih = int(ih * ratio)
+            img = pygame.transform.smoothscale(img, (iw, ih))
+            
+        # Center Y
+        target_x = 0
+        target_y = (state.height - ih) // 3  # Upper third
+        
+        draw_x = target_x
+        draw_alpha = 255
+        
+        if cutin.stage == 0: # Enter
+            progress = min(1.0, cutin.timer / DURATION_ENTER)
+            # Slide from Right
+            start_x = state.width
+            # Ease Out Back
+            c1 = 1.70158
+            c3 = c1 + 1
+            t = progress - 1
+            ease = 1 + c3 * math.pow(t, 3) + c1 * math.pow(t, 2)
+            
+            draw_x = start_x + (target_x - start_x) * ease
+            draw_alpha = int(255 * progress)
+            
+        elif cutin.stage == 1: # Hold
+            draw_x = target_x
+            draw_alpha = 255
+            
+        elif cutin.stage == 2: # Exit
+            progress = min(1.0, cutin.timer / DURATION_EXIT)
+            # Fade out
+            draw_alpha = int(255 * (1 - progress))
+            draw_x = target_x - int(100 * progress) # Slight slide left
+            
+        if draw_alpha < 0: draw_alpha = 0
+        if draw_alpha > 255: draw_alpha = 255
+        
+        img.set_alpha(draw_alpha)
+        self.screen.blit(img, (int(draw_x), int(target_y)))
+        # Reset alpha for next use (though get_image returns ref, set_alpha might persist)
+        # Ideally we copy or reset. Pygame surfaces verify: set_alpha modifies the surface.
+        # So we should probably reset it or copy it.
+        # For performance, we reset it to 255 if we modify it?
+        # Creating a copy every frame is safer for generic asset management.
+        # But since we modify it every frame anyway, it will be overwritten next frame.
+        # Issue: if other things use "boss_cutin", they will see the alpha.
+        # FIX: Blit with special flags or creating temp surface.
+        # Pygame blit doesn't support separate alpha param unless per-pixel alpha.
+        # The image likely has per-pixel alpha. `set_alpha` on per-pixel alpha surface works as a multiplier?
+        # Yes.
+        # To be safe, we should restore alpha to 255 at end of render or use a copy.
+        # Or better: don't modify the cached asset.
+        
+        img.set_alpha(255) # Restore alpha for other uses
+
+    def _render_boss_hud(self, state: GameState) -> None:
+        """渲染 Boss HUD：血条、计时器、符卡名、剩余阶段星星。"""
+        # 查找场上的 Boss
+        boss_hud = None
+        for actor in state.actors:
+            hud = actor.get(BossHudData)
+            if hud and hud.visible:
+                boss_hud = hud
+                break
+
+        if not boss_hud:
+            return
+
         screen_w = state.width
 
-        # ====== 绘制血条（顶部中央） ======
         # ====== 绘制血条（顶部中央） ======
         bg = self.assets.get_image("ui_boss_hp_bg")
         fill = self.assets.get_image("ui_boss_hp_fill")

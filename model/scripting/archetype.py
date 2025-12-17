@@ -166,3 +166,25 @@ def register_default_archetypes() -> None:
         mask=CollisionLayer.PLAYER | CollisionLayer.PLAYER_BULLET,
         lifetime=30.0,
     ))
+    
+    # Boss Blue (Small)
+    register_archetype(BulletArchetype(
+        id="boss_blue",
+        damage=1,
+        sprite="boss_bullet_blue",
+        radius=6.0,
+        layer=CollisionLayer.ENEMY_BULLET,
+        mask=CollisionLayer.PLAYER | CollisionLayer.PLAYER_BULLET,
+        lifetime=30.0,
+    ))
+    
+    # Boss Red (Large)
+    register_archetype(BulletArchetype(
+        id="boss_red",
+        damage=2,
+        sprite="boss_bullet_red",
+        radius=8.0,
+        layer=CollisionLayer.ENEMY_BULLET,
+        mask=CollisionLayer.PLAYER | CollisionLayer.PLAYER_BULLET,
+        lifetime=30.0,
+    ))
