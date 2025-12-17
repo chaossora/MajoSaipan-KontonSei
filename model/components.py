@@ -463,6 +463,18 @@ class BossHudData:
     visible: bool = True
 
 
+@dataclass
+class BossAttackAnimation:
+    """
+    Boss攻击动画状态。
+    用于在发射弹幕时播放攻击动画。
+    """
+    is_playing: bool = False      # 是否正在播放
+    frame_index: int = 0          # 当前帧索引
+    timer: float = 0.0            # 帧计时器
+    cooldown: float = 0.0         # 冷却计时器（防止连续触发）
+
+
 # ====== 子机（Option）组件 ======
 
 @dataclass

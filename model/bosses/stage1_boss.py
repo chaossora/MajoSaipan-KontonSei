@@ -19,7 +19,7 @@ from model.boss_registry import boss_registry
 from model.components import (
     Position, Velocity, Health, Collider, SpriteInfo,
     CollisionLayer, EnemyTag, EnemyKind, EnemyKindTag,
-    BossState, BossHudData,
+    BossState, BossHudData, BossAttackAnimation,
 )
 from model.scripting.task import TaskRunner
 from model.scripting.patterns import fire_ring, fire_fan
@@ -379,7 +379,7 @@ def fire_triple_layer_fan(
             ctx.fire(x, y, fly_speed, angle, archetype, motion=motion)
 
 
-def fire_bouncing_pentagrams(
+def draw_bouncing_pentagrams(
     ctx: "TaskContext",
     cx: float,
     cy: float,
@@ -393,9 +393,10 @@ def fire_bouncing_pentagrams(
     archetype: str = "bullet_medium",
     max_bounces: int = 1,
     angle_spread: float = 50.0,
-) -> None:
+    draw_interval: int = 1,
+) -> "Generator[int, None, None]":
     """
-    发射可反弹的五角星弹幕。
+    一颗颗画出可反弹的五角星弹幕。
 
     在屏幕中心发射多个五角星，子弹碰到边界会反弹指定次数。
     边散开时有角度和速度梯度。
@@ -413,66 +414,73 @@ def fire_bouncing_pentagrams(
         archetype: 子弹原型
         max_bounces: 最大反弹次数
         angle_spread: 角度梯度范围（度）
+        draw_interval: 每颗子弹之间的间隔帧数
     """
     from model.components import BulletBounce
 
-    # 每个五角星朝不同方向飞出（均匀分布）
+    # 预计算所有星星的顶点和边
+    stars_data = []
     for star_idx in range(num_stars):
-        # 五角星飞出方向（均匀分布在360度）
         move_angle = star_idx * (360.0 / num_stars)
-        # 五角星旋转角度（让每个星星角度不同）
         rotation = star_idx * (360.0 / num_stars / 2)
 
-        # 计算 5 个顶点位置
         vertices = []
         for k in range(5):
-            angle_deg = rotation + k * 72 - 90  # -90 让第一个顶点朝上
+            angle_deg = rotation + k * 72 - 90
             angle_rad = math.radians(angle_deg)
             vx = radius * math.cos(angle_rad)
             vy = radius * math.sin(angle_rad)
             vertices.append((vx, vy))
 
-        # 五角星的边连接顺序：0→2→4→1→3→0
-        edge_indices = [(0, 2), (2, 4), (4, 1), (1, 3), (3, 0)]
+        stars_data.append((vertices, move_angle))
 
-        for start_idx, end_idx in edge_indices:
-            start_vx, start_vy = vertices[start_idx]
-            end_vx, end_vy = vertices[end_idx]
+    edge_indices = [(0, 2), (2, 4), (4, 1), (1, 3), (3, 0)]
+    total_bullets_per_star = 5 * bullets_per_edge
+    frame_gap = draw_interval + 1
 
-            edge_dx = end_vx - start_vx
-            edge_dy = end_vy - start_vy
+    # 逐颗画子弹（所有星星同时画）
+    bullet_idx = 0
+    for edge_idx, (start_idx, end_idx) in enumerate(edge_indices):
+        for j in range(bullets_per_edge):
+            t = j / max(bullets_per_edge - 1, 1)
 
-            # 计算边的中点（用于确定散开方向）
-            mid_x = (start_vx + end_vx) / 2
-            mid_y = (start_vy + end_vy) / 2
-            base_scatter_angle = math.degrees(math.atan2(mid_y, mid_x))
+            # 为所有星星的这一颗子弹创建
+            for vertices, move_angle in stars_data:
+                start_vx, start_vy = vertices[start_idx]
+                end_vx, end_vy = vertices[end_idx]
+                edge_dx = end_vx - start_vx
+                edge_dy = end_vy - start_vy
 
-            for j in range(bullets_per_edge):
-                t = j / max(bullets_per_edge - 1, 1)
                 rel_x = start_vx + t * edge_dx
                 rel_y = start_vy + t * edge_dy
-
                 bullet_x = cx + rel_x
                 bullet_y = cy + rel_y
 
-                # 角度梯度：从 -angle_spread/2 到 +angle_spread/2 的扇形展开
+                mid_x = (start_vx + end_vx) / 2
+                mid_y = (start_vy + end_vy) / 2
+                base_scatter_angle = math.degrees(math.atan2(mid_y, mid_x))
                 final_scatter_angle = base_scatter_angle + (t - 0.5) * angle_spread
 
-                # 速度梯度：从0.7x到1.3x的速度变化，形成倾斜弹幕墙
                 speed_factor = 0.7 + t * 0.6
                 final_scatter_speed = scatter_speed * speed_factor
 
-                # 创建运动程序
-                motion = (MotionBuilder(speed=move_speed, angle=move_angle)
+                # 同步等待：让后面的子弹等待更短时间
+                wait_for_sync = (total_bullets_per_star - 1 - bullet_idx) * frame_gap + 1
+
+                motion = (MotionBuilder(speed=0, angle=move_angle)
+                    .wait(wait_for_sync)
+                    .set_speed(move_speed)
                     .wait(hold_frames)
                     .set_angle(final_scatter_angle)
                     .accelerate_to(final_scatter_speed, scatter_frames)
                     .build())
 
-                # 发射子弹
-                bullet = ctx.fire(bullet_x, bullet_y, move_speed, move_angle, archetype, motion=motion)
-                # 添加反弹组件
+                bullet = ctx.fire(bullet_x, bullet_y, 0, move_angle, archetype, motion=motion)
                 bullet.add(BulletBounce(max_bounces=max_bounces, bounce_count=0))
+
+            bullet_idx += 1
+            if bullet_idx < total_bullets_per_star:
+                yield draw_interval
 
 
 def _fly_and_fire_phase5(
@@ -481,7 +489,7 @@ def _fly_and_fire_phase5(
     start_y: float,
     end_x: float,
     end_y: float,
-    fly_speed: float = 280.0,
+    fly_speed: float = 500.0,
     fire_interval: int = 8,
     fan_count: int = 7,
     fan_spread: float = 60.0,
@@ -708,17 +716,20 @@ def _draw_ten_pentagrams(
 def phase1_nonspell(ctx: "TaskContext") -> Generator[int, None, None]:
     """
     Phase 1: 非符 - 「十星绽放」
-    
+
     Boss入场后，以自己为圆心画出10个五角星：
     - 10个五角星同时画出（有画星星的过程）
     - 画完后向四周散开
     - 循环发射
     """
     wave = 0
-    
+
     while True:
         x, y = ctx.owner_pos()
-        
+
+        # ★ 每波开始时触发攻击动画
+        ctx.trigger_attack_animation(cooldown=1.0)
+
         # 画出10个五角星并散开
         yield from _draw_ten_pentagrams(
             ctx, x, y,
@@ -916,7 +927,11 @@ def phase2_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
                 aim_interval = 120
                 aim_duration = 30 # 持续发射30帧
                 aim_cycle = time_counter % aim_interval
-                
+
+                # ★ 自机狙开始时触发攻击动画
+                if aim_cycle == 0:
+                    ctx.trigger_attack_animation(cooldown=2.0)
+
                 if aim_cycle < aim_duration and aim_cycle % 3 == 0:
                     bx, by = ctx.owner_pos()
                     speed = 250
@@ -1277,18 +1292,21 @@ def _spawn_breathing_spiral(
 def phase3_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     """
     Phase 3: 符卡「双重星环」
-    
+
     复用第一阶段，但同时画10个大五角星和10个小五角星。
     小五角星在内圈交错，飞出距离较短。
     """
     wave = 0
-    
+
     # 移动到屏幕中心上方
     yield from ctx.move_to(ctx.state.width / 2, 100, frames=60)
-    
+
     while True:
         x, y = ctx.owner_pos()
-        
+
+        # ★ 每波开始时触发攻击动画
+        ctx.trigger_attack_animation(cooldown=2.0)
+
         yield from _draw_double_ring_pentagrams(
             ctx, x, y,
             # 大星星参数
@@ -1325,6 +1343,9 @@ def phase4_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     - 在摇摆两端（sin 波峰/波谷）旋转变慢，中间变快
     - 越往后摇摆幅度越大（振幅随时间增加）
     """
+    # ★ 符卡开始时触发一次攻击动画，设置超长冷却
+    ctx.trigger_attack_animation(cooldown=9999.0)
+
     # 弹幕参数（参考 Lunatic 难度）
     NUM_ARMS = 12                      # 螺旋臂数量
     BULLET_SPEED = 180.0               # 子弹速度 (px/s)
@@ -1364,17 +1385,41 @@ def phase4_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
 
 def _fire_pentagrams_at_boss(ctx: "TaskContext") -> "Generator[int, None, None]":
     """
-    辅助函数：Boss移动到当前位置附近并发射反弹五角星。
+    辅助函数：Boss飞到屏幕中间附近的随机位置并发射反弹五角星。
 
-    在当前Boss位置发射4个可反弹五角星，然后短暂等待。
+    1. 计算屏幕中心附近的随机目标位置
+    2. Boss平滑移动到该位置
+    3. 触发攻击动画并等待蓄力
+    4. 发射4个可反弹五角星
+    5. 短暂等待
+    6. 飞向屏幕外随机一边
     """
-    x, y = ctx.owner_pos()
+    import random
 
-    # 发射4个可反弹五角星
-    fire_bouncing_pentagrams(
+    screen_w = ctx.state.width
+    screen_h = ctx.state.height
+    MARGIN = 200  # 屏幕外缓冲区
+
+    # 计算屏幕中心附近的随机位置
+    # X: 屏幕宽度的 30%~70% 范围内
+    # Y: 屏幕高度的 20%~50% 范围内（偏上方，符合Boss战斗区域）
+    target_x = screen_w * (0.3 + random.random() * 0.4)
+    target_y = screen_h * (0.2 + random.random() * 0.3)
+
+    # Boss移动到目标位置
+    yield from ctx.move_to(target_x, target_y, frames=30)
+
+    # 移动完成后的缓冲时间（约 0.5 秒）
+    yield 30
+
+    # 触发攻击动画
+    ctx.trigger_attack_animation(cooldown=5.0)
+
+    # 一颗颗画出4个可反弹五角星
+    yield from draw_bouncing_pentagrams(
         ctx,
-        cx=x,
-        cy=y,
+        cx=target_x,
+        cy=target_y,
         num_stars=4,
         radius=60.0,
         bullets_per_edge=8,
@@ -1384,10 +1429,26 @@ def _fire_pentagrams_at_boss(ctx: "TaskContext") -> "Generator[int, None, None]"
         scatter_frames=30,
         archetype="boss_red",
         max_bounces=1,
+        draw_interval=1,
     )
 
     # 短暂等待让星星飞出
     yield 30
+
+    # 随机选择一个方向飞出屏幕（上、左、右）
+    exit_direction = random.choice(["top", "left", "right"])
+    if exit_direction == "top":
+        exit_x = target_x
+        exit_y = -MARGIN
+    elif exit_direction == "left":
+        exit_x = -MARGIN
+        exit_y = target_y * 0.5  # 偏上方一点
+    else:  # right
+        exit_x = screen_w + MARGIN
+        exit_y = target_y * 0.5
+
+    # 飞出屏幕
+    yield from ctx.move_to(exit_x, exit_y, frames=30)
 
 
 def phase5_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
@@ -1409,25 +1470,31 @@ def phase5_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     screen_h = ctx.state.height
 
     # 弹幕参数
-    FLY_SPEED = 280.0           # Boss飞行速度 (px/s)
+    FLY_SPEED = 2520.0          # Boss飞行速度 (px/s)
     FIRE_INTERVAL = 8           # 发射间隔（帧）
     FAN_COUNT = 7               # 每层子弹数
     FAN_SPREAD = 60.0           # 扇形角度
     LAYER_SPEEDS = (120, 180, 240)  # 内/中/外层速度
 
+    # 屏幕外缓冲区（让boss完全消失后再切换路径）
+    MARGIN = 200
+    LEFT = -MARGIN
+    RIGHT = screen_w + MARGIN
+    TOP = -MARGIN
+
     while True:
         # ===== 步骤1: 左侧飞向右上（2条平行线）=====
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=0, start_y=screen_h / 2,
-            end_x=screen_w, end_y=0,
+            start_x=LEFT, start_y=screen_h / 2,
+            end_x=RIGHT, end_y=TOP,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=0, start_y=screen_h * 0.8,
-            end_x=screen_w, end_y=screen_h / 2,
+            start_x=LEFT, start_y=screen_h * 0.8,
+            end_x=RIGHT, end_y=screen_h / 2,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
@@ -1435,22 +1502,22 @@ def phase5_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
         # ===== 步骤2: 右侧飞向左上（3条平行线，镜像角度）=====
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=screen_w, start_y=screen_h / 3,
-            end_x=0, end_y=0,
+            start_x=RIGHT, start_y=screen_h / 3,
+            end_x=LEFT, end_y=TOP,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=screen_w, start_y=screen_h * 2 / 3,
-            end_x=0, end_y=screen_h / 3,
+            start_x=RIGHT, start_y=screen_h * 2 / 3,
+            end_x=LEFT, end_y=screen_h / 3,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=screen_w, start_y=screen_h,
-            end_x=0, end_y=screen_h * 2 / 3,
+            start_x=RIGHT, start_y=screen_h,
+            end_x=LEFT, end_y=screen_h * 2 / 3,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
@@ -1461,22 +1528,22 @@ def phase5_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
         # ===== 步骤3: 左侧飞向右上（3条平行线）=====
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=0, start_y=screen_h / 3,
-            end_x=screen_w, end_y=0,
+            start_x=LEFT, start_y=screen_h / 3,
+            end_x=RIGHT, end_y=TOP,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=0, start_y=screen_h * 2 / 3,
-            end_x=screen_w, end_y=screen_h / 3,
+            start_x=LEFT, start_y=screen_h * 2 / 3,
+            end_x=RIGHT, end_y=screen_h / 3,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=0, start_y=screen_h,
-            end_x=screen_w, end_y=screen_h * 2 / 3,
+            start_x=LEFT, start_y=screen_h,
+            end_x=RIGHT, end_y=screen_h * 2 / 3,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
@@ -1484,15 +1551,15 @@ def phase5_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
         # ===== 步骤4: 右侧飞向左上（2条平行线）=====
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=screen_w, start_y=screen_h / 2,
-            end_x=0, end_y=0,
+            start_x=RIGHT, start_y=screen_h / 2,
+            end_x=LEFT, end_y=TOP,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
         yield from _fly_and_fire_phase5(
             ctx,
-            start_x=screen_w, start_y=screen_h * 0.8,
-            end_x=0, end_y=screen_h / 2,
+            start_x=RIGHT, start_y=screen_h * 0.8,
+            end_x=LEFT, end_y=screen_h / 2,
             fly_speed=FLY_SPEED, fire_interval=FIRE_INTERVAL,
             fan_count=FAN_COUNT, fan_spread=FAN_SPREAD, layer_speeds=LAYER_SPEEDS,
         )
@@ -1671,7 +1738,10 @@ def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
         phases_remaining=5,
         visible=True,
     ))
-    
+
+    # 攻击动画状态
+    boss.add(BossAttackAnimation())
+
     # TaskRunner for boss script
     runner = TaskRunner()
     boss.add(runner)

@@ -625,7 +625,43 @@ class Assets:
                 "loop_move": frames_loop
             }
             print(f"Loaded boss sprite: {path} ({sw}x{sh}) -> Frame {frame_w}x{frame_h}")
-            
+
+            # 加载攻击动画素材 (1行4列)
+            attack_path = "assets/sprites/enemies/微信图片_20251216235357_452_38.png"
+            try:
+                attack_sheet = pygame.image.load(attack_path).convert_alpha()
+                aw, ah = attack_sheet.get_size()
+                attack_cols = 4
+                attack_frame_w = aw // attack_cols
+
+                # 按高度缩放，保持宽高比
+                scale_ratio = frame_h / ah
+                scaled_w = int(attack_frame_w * scale_ratio)
+                scaled_h = frame_h
+
+                # 切割并缩放（保持宽高比）
+                attack_frames_raw = []
+                for i in range(attack_cols):
+                    rect = pygame.Rect(i * attack_frame_w, 0, attack_frame_w, ah)
+                    frame = attack_sheet.subsurface(rect)
+                    # 按比例缩放，不变形
+                    scaled = pygame.transform.smoothscale(frame, (scaled_w, scaled_h))
+                    attack_frames_raw.append(scaled)
+
+                # 生成序列: 0→1→2→3→2→1→0 (正放+倒放，共7帧)
+                self.enemy_sprites["enemy_boss"]["attack"] = [
+                    attack_frames_raw[0],  # 常态
+                    attack_frames_raw[1],  # 过渡1
+                    attack_frames_raw[2],  # 过渡2
+                    attack_frames_raw[3],  # 发射
+                    attack_frames_raw[2],  # 过渡2 (倒放)
+                    attack_frames_raw[1],  # 过渡1 (倒放)
+                    attack_frames_raw[0],  # 常态 (恢复)
+                ]
+                print(f"Loaded boss attack sprite: {attack_path} -> 7 frames (Scaled to {scaled_w}x{scaled_h})")
+            except (FileNotFoundError, pygame.error) as e:
+                print(f"Failed to load boss attack sprite {attack_path}: {e}")
+
         except (FileNotFoundError, pygame.error) as e:
             print(f"Failed to load boss sprite {path}: {e}")
 
