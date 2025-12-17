@@ -686,10 +686,15 @@ class TaskContext:
                 remaining = (timeout_frames - elapsed_frames) / 60.0
                 self.update_boss_hud(timer=remaining)
                 
-                # 处理移动
+                # 处理移动（攻击动画播放时暂停移动）
                 if move_enabled and self.owner:
+                    # 检查攻击动画状态
+                    from model.components import BossAttackAnimation
+                    attack_anim = self.owner.get(BossAttackAnimation)
+                    is_attack_playing = attack_anim and attack_anim.is_playing
+                    
                     pos = self.owner.get(Position)
-                    if pos:
+                    if pos and not is_attack_playing:
                         if is_moving:
                             # 正在移动：更新位置
                             move_progress += 1.0 / move_frames_total
@@ -795,13 +800,22 @@ class TaskContext:
     
     def phase_transition(self, frames: int = 60) -> Generator[int, None, None]:
         """
-        阶段转换：清屏 + 无敌 + 等待。
+        阶段转换：清屏 + 无敌 + 等待 + 重置攻击动画。
         
         Args:
             frames: 转换等待帧数
         """
+        from model.components import BossAttackAnimation
+
         self.clear_bullets()
         self.set_invulnerable(True)
+
+        # 重置攻击动画状态（清除上一阶段可能设置的超长冷却）
+        if self.owner:
+            anim = self.owner.get(BossAttackAnimation)
+            if anim:
+                anim.cooldown = 0.0
+                anim.is_playing = False
         
         for _ in range(frames):
             yield 1  # 每帧执行（LuaSTG 风格）
@@ -813,22 +827,55 @@ class TaskContext:
         Boss 战结束，标记 Boss 死亡并触发掉落。
         """
         from model.components import EnemyJustDied, BossHudData
-        
+
         if self.owner is None:
             return
-        
+
         # 添加死亡标记
         if not self.owner.get(EnemyJustDied):
             self.owner.add(EnemyJustDied(by_player_bullet=True))
-        
+
         # 隐藏 HUD
         hud = self.owner.get(BossHudData)
         if hud:
             hud.visible = False
-        
+
         # 清屏
         self.clear_bullets()
-    
+
+    def trigger_attack_animation(self, cooldown: float = 1.0) -> bool:
+        """
+        触发 Boss 攻击动画。
+
+        在脚本中手动调用此方法来触发攻击动画。
+        冷却期间不会重复触发，避免连续弹幕导致动画闪烁。
+
+        Args:
+            cooldown: 触发后的冷却时间（秒），冷却期间不会再次触发
+
+        Returns:
+            是否成功触发（冷却期间返回 False）
+        """
+        from model.components import BossAttackAnimation
+
+        if self.owner is None:
+            return False
+
+        anim = self.owner.get(BossAttackAnimation)
+        if anim is None:
+            return False
+
+        # 冷却中或正在播放，不触发
+        if anim.cooldown > 0 or anim.is_playing:
+            return False
+
+        # 触发动画
+        anim.is_playing = True
+        anim.frame_index = 0
+        anim.timer = 0.0
+        anim.cooldown = cooldown
+        return True
+
     def random_move(
         self,
         x_min: float,

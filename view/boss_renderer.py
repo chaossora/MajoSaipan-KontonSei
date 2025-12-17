@@ -1,6 +1,6 @@
 import pygame
 from model.game_state import GameState
-from model.components import Velocity, SpriteInfo, Position
+from model.components import Velocity, SpriteInfo, Position, BossAttackAnimation
 
 class BossRenderer:
     def __init__(self, screen: pygame.Surface, assets):
@@ -38,7 +38,8 @@ class BossRenderer:
                 "stop_counter": 0, # 停止计时器 (用于防抖动)
                 "aura_timer": 0.0,
                 "aura_frame_idx": 0,
-                "aura_angle": 0.0
+                "aura_angle": 0.0,
+                "trail_history": [],  # 残影位置历史
             }
         
         anim = self.anim_states[aid]
@@ -56,24 +57,43 @@ class BossRenderer:
         anim["last_x"] = current_x
         anim["last_y"] = current_y
         
+        speed_sq = dx*dx + dy*dy
+
+        # 更新残影历史（根据速度动态调整）
+        import math
+        speed = math.sqrt(speed_sq)
+        trail_history = anim.get("trail_history", [])
+        
+        if speed > 3:  # 速度超过3px/frame时显示残影
+            # 每帧都记录残影
+            trail_history.append((current_x, current_y, anim["face_right"]))
+            
+            # 最多保甹10个残影
+            while len(trail_history) > 10:
+                trail_history.pop(0)
+            # 重置淡出计数器
+            anim["fade_counter"] = 0
+        else:
+            # 低速时每2帧清除一个残影（更快消失）
+            fade_counter = anim.get("fade_counter", 0) + 1
+            if fade_counter >= 2 and trail_history:
+                trail_history.pop(0)
+                fade_counter = 0
+            anim["fade_counter"] = fade_counter
+        anim["trail_history"] = trail_history
+        
         # 阈值判断：dx > 0.2 表示有明显【横向】移动，用于翻转
         if dx > 0.2:
             anim["face_right"] = True
         elif dx < -0.2:
             anim["face_right"] = False
             
-        # 3. 更新状态机 (State Machine)
-        # 综合判断 X 和 Y 的移动
-        speed_sq = dx*dx + dy*dy
         
         # 降低阈值并增加迟滞 (Hysteresis)
         # 只要有一点点移动 (0.05px/frame) 就视为移动中
         # 且必须连续 10 帧静止才切换回 Idle
         current_is_moving = speed_sq > 0.0025
         
-        # 3. 更新状态机 (State Machine)
-        # 综合判断 X 和 Y 的移动
-        speed_sq = dx*dx + dy*dy
         
         # 降低阈值并增加迟滞 (Hysteresis)
         current_is_moving = speed_sq > 0.0025
@@ -170,11 +190,11 @@ class BossRenderer:
             if anim["aura_timer"] >= 0.1: # 0.1s per frame
                 anim["aura_timer"] = 0.0
                 anim["aura_frame_idx"] = anim.get("aura_frame_idx", 0) + 1
-            
+
             # 更新旋转角度 (Snowflake Rotation)
             # 每帧增加 2 度 (可调整速度)
             anim["aura_angle"] = (anim.get("aura_angle", 0.0) + 2.0) % 360
-            
+
             aura_frames = self.assets.vfx["boss_aura"]
             if aura_frames:
                 idx = anim.get("aura_frame_idx", 0) % len(aura_frames)
@@ -184,6 +204,44 @@ class BossRenderer:
                      rotated_aura = pygame.transform.rotate(aura_img, anim["aura_angle"])
                      rect = rotated_aura.get_rect(center=(int(pos.x), int(pos.y)))
                      self.screen.blit(rotated_aura, rect)
+
+        # 4.6 检查并渲染攻击动画（优先于移动动画）
+        attack_anim = actor.get(BossAttackAnimation)
+        if attack_anim:
+            # 每帧递减冷却
+            if attack_anim.cooldown > 0:
+                attack_anim.cooldown = max(0, attack_anim.cooldown - 1.0/60.0)
+
+            if attack_anim.is_playing:
+                # 获取攻击动画帧
+                attack_frames = self._get_frames(sprite_info.name, "attack")
+                if attack_frames:
+                    # 推进攻击动画帧
+                    attack_anim.timer += 1.0/60.0
+                    
+                    # 第四帧（发射帧，索引3）延长到1.5秒
+                    is_fire_frame = attack_anim.frame_index == 3
+                    frame_duration = 1.5 if is_fire_frame else self.FRAME_DURATION
+                    
+                    if attack_anim.timer >= frame_duration:
+                        attack_anim.timer = 0.0
+                        attack_anim.frame_index += 1
+
+                        # 动画播放完毕
+                        if attack_anim.frame_index >= len(attack_frames):
+                            attack_anim.is_playing = False
+                            attack_anim.frame_index = 0
+
+                    # 绘制攻击动画帧
+                    idx = min(attack_anim.frame_index, len(attack_frames) - 1)
+                    image = attack_frames[idx]
+
+                    # 攻击动画始终保持正面，不跟随移动方向翻转
+
+                    # 绘制
+                    rect = image.get_rect(center=(int(pos.x + sprite_info.offset_x), int(pos.y + sprite_info.offset_y)))
+                    self.screen.blit(image, rect)
+                    return  # 跳过移动动画渲染
 
         # 5. 绘制
         frames = self._get_frames(sprite_info.name, target_state)
@@ -201,10 +259,22 @@ class BossRenderer:
             # 仅在非待机状态下翻转 (end_move 属于侧身动作，也需要翻转)
             if not anim["face_right"] and target_state != "idle":
                 image = pygame.transform.flip(image, True, False)
+            
+            # 5.1 绘制残影（在主体之前）
+            trail_history = anim.get("trail_history", [])
+            if trail_history and target_state != "idle":
+                for i, (trail_x, trail_y, trail_face_right) in enumerate(trail_history):
+                    # 透明度随距离递减（最旧的最透明）
+                    alpha = int(60 + i * 30)  # 60, 90, 120, 150
+                    trail_img = image.copy()
+                    # 根据残影方向翻转
+                    if trail_face_right != anim["face_right"]:
+                        trail_img = pygame.transform.flip(trail_img, True, False)
+                    trail_img.set_alpha(alpha)
+                    trail_rect = trail_img.get_rect(center=(int(trail_x + sprite_info.offset_x), int(trail_y + sprite_info.offset_y)))
+                    self.screen.blit(trail_img, trail_rect)
                 
-            # 绘制中心对齐
-            # 使用 center=(pos.x, pos.y) 自动处理居中，加上 sprite_info.offset 进行微调
-            # 如果 offset 是 0, 0，则图片中心对齐 actor 位置
+            # 5.2 绘制主体（中心对齐）
             rect = image.get_rect(center=(int(pos.x + sprite_info.offset_x), int(pos.y + sprite_info.offset_y)))
             self.screen.blit(image, rect)
             
