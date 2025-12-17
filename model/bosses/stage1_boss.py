@@ -773,7 +773,7 @@ def phase2_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     lasers_left = []
     lasers_right = []
     
-    num_lasers = 40  # 增加激光数量，使屏障更密集
+    num_lasers = 64  # 增加数量使波浪更平滑
     step_y = screen_h / num_lasers
     
     # 初始偏移，让激光在屏幕外
@@ -783,19 +783,28 @@ def phase2_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     
     # 初始化激光
     for i in range(num_lasers):
-        y_pos = i * step_y + 10
+        y_pos = i * step_y + step_y / 2
         
+        # 计算颜色梯度：深蓝 -> 青 -> 白 -> 青 -> 深蓝 (模拟水光泽)
+        # t: 0 -> 1 -> 0
+        t = math.sin((i / num_lasers) * math.pi)
+        r = int(20 + 60 * t)
+        g = int(50 + 150 * t)
+        b = int(180 + 75 * t)
+        wave_color = (min(255, r), min(255, g), min(255, b))
+
         # 左侧激光（从左边缘向右发射）
         l1 = ctx.fire_laser(
             x=-entry_offset_x,
             y=y_pos,
             angle=0,  # 向右
             length=100, # 初始长度
-            width=12.0,
+            width=15.0, # 增加宽度以确保重叠
             laser_type="straight", 
             warmup_frames=0, # 无预热
             duration_frames=6000, # 持续很久
-            can_reflect=False
+            can_reflect=False,
+            color=wave_color
         )
         lasers_left.append((l1, y_pos))
         
@@ -805,11 +814,12 @@ def phase2_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
             y=y_pos,
             angle=180, # 向左
             length=100,
-            width=12.0,
+            width=15.0,
             laser_type="straight",
             warmup_frames=0, # 无预热
             duration_frames=6000,
-            can_reflect=False
+            can_reflect=False,
+            color=wave_color
         )
         lasers_right.append((l2, y_pos))
 
@@ -1342,7 +1352,14 @@ def phase4_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     - 动态效果：发射角度以正弦函数摇摆
     - 在摇摆两端（sin 波峰/波谷）旋转变慢，中间变快
     - 越往后摇摆幅度越大（振幅随时间增加）
+    - Boss在中央释放后飞出屏幕，雪花留在中央跟随弹幕节奏旋转
     """
+    from model.components import BossAuraState
+    
+    # 弹幕固定发射位置（屏幕中央）
+    center_x = ctx.state.width / 2
+    center_y = ctx.state.height / 3  # 屏幕高度的1/3处，约213
+    
     # ★ 符卡开始时触发一次攻击动画，设置超长冷却
     ctx.trigger_attack_animation(cooldown=9999.0)
 
@@ -1355,26 +1372,71 @@ def phase4_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     FREQUENCY = 0.10                   # 摇摆频率（每帧）
     BASE_ANGULAR_VELOCITY = 4.0        # 基础旋转速度（度/帧）
     FIRE_INTERVAL = 3                  # 发射间隔（帧）
+    
+    # Boss飞出配置
+    DETACH_FRAME = 60                  # 多少次发射后Boss飞出屏幕（约3秒）
+    FLY_OUT_FRAMES = 30                # 飞出动画帧数
 
     frame = 0
     base_angle = 0.0
     current_amplitude = BASE_AMPLITUDE
+    
+    # 初始化雪花状态组件
+    aura_state = ctx.owner.get(BossAuraState)
+    if not aura_state:
+        aura_state = BossAuraState()
+        ctx.owner.add(aura_state)
+    aura_state.detached = False
+    aura_state.fixed_x = center_x
+    aura_state.fixed_y = center_y
+    aura_state.angle = 0.0
+    
+    # 离开状态标记
+    boss_detached = False
+    fly_out_generator = None
 
     while True:
-        x, y = ctx.owner_pos()
+        # 获取Boss当前位置
+        boss_x, boss_y = ctx.owner_pos()
+        
+        # 检查是否到达分离时机
+        if frame == DETACH_FRAME and not boss_detached:
+            # 记录分离时Boss的位置作为雪花和弹幕的固定位置
+            aura_state.fixed_x = boss_x
+            aura_state.fixed_y = boss_y
+            aura_state.detached = True
+            boss_detached = True
+            # 开始飞出动画（飞向屏幕上方外）
+            fly_out_generator = ctx.move_to(boss_x, -200, frames=FLY_OUT_FRAMES)
+        
+        # 如果正在飞出，继续飞出动画
+        if fly_out_generator is not None:
+            try:
+                next(fly_out_generator)
+            except StopIteration:
+                fly_out_generator = None
+        
+        # 分离前从 Boss 位置发射，分离后从固定位置发射
+        if boss_detached:
+            fire_x, fire_y = aura_state.fixed_x, aura_state.fixed_y
+        else:
+            fire_x, fire_y = boss_x, boss_y
 
         # 1. 计算摇摆角度（正弦函数，振幅逐渐增大）
         swing_angle = current_amplitude * math.sin(FREQUENCY * frame)
 
         # 2. 计算总发射角度
         total_angle = base_angle + swing_angle
+        
+        # 3. 同步更新雪花旋转角度（跟随弹幕节奏）
+        aura_state.angle = total_angle
 
-        # 3. 发射多条螺旋臂
+        # 4. 发射多条螺旋臂
         for k in range(NUM_ARMS):
             fire_angle = total_angle + k * (360.0 / NUM_ARMS)
-            ctx.fire(x, y, BULLET_SPEED, fire_angle, "boss_blue")
+            ctx.fire(fire_x, fire_y, BULLET_SPEED, fire_angle, "boss_blue")
 
-        # 4. 更新状态
+        # 5. 更新状态
         base_angle += BASE_ANGULAR_VELOCITY
         # 振幅逐渐增大，但不超过最大值
         current_amplitude = min(current_amplitude + AMPLITUDE_GROWTH, MAX_AMPLITUDE)
@@ -1466,8 +1528,22 @@ def phase5_spellcard(ctx: "TaskContext") -> Generator[int, None, None]:
     步骤4: 右侧飞向左上（2条平行线）
     → 发射五角星
     """
+    from model.components import BossAuraState
+    
     screen_w = ctx.state.width
     screen_h = ctx.state.height
+    
+    # 检查雪花是否处于分离状态，如果是则让Boss先飞回雪花位置
+    aura_state = ctx.owner.get(BossAuraState)
+    if aura_state and aura_state.detached:
+        # Boss飞回雪花的固定位置
+        yield from ctx.move_to(aura_state.fixed_x, aura_state.fixed_y, frames=60)
+        # 重新附着雪花
+        aura_state.detached = False
+        # 等待一小段时间让过渡更自然
+        yield 30
+        # Boss平滑飞出屏幕左侧，为第五阶段弹幕做准备
+        yield from ctx.move_to(-200, screen_h / 2, frames=60)
 
     # 弹幕参数
     FLY_SPEED = 2520.0          # Boss飞行速度 (px/s)

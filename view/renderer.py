@@ -816,8 +816,9 @@ class Renderer:
         segments = self._get_laser_segments_for_render(pos, laser_state)
         width = int(laser_state.width)
         
-        # 颜色：半透明红色辉光
-        glow_color = (255, 200, 200, 100)
+        # 颜色：半透明辉光 (使用激光颜色)
+        r, g, b = laser_state.color
+        glow_color = (r, g, b, 100)
         glow_width = width + 8
         
         for x1, y1, x2, y2 in segments:
@@ -844,11 +845,11 @@ class Renderer:
         segments = self._get_laser_segments_for_render(pos, laser_state)
 
         if laser_state.warmup_timer > 0:
-            # 预热阶段：绘制细红线预警
+            # 预热阶段：绘制细线预警 (使用激光颜色)
             for x1, y1, x2, y2 in segments:
                 pygame.draw.line(
                     self.screen,
-                    (255, 100, 100),
+                    laser_state.color,
                     (int(x1), int(y1)),
                     (int(x2), int(y2)),
                     2
@@ -858,8 +859,8 @@ class Renderer:
             width = int(laser_state.width)
 
             # 绘制主体激光到屏幕（不透明）
-            main_color = (255, 255, 255)
-            core_color = (255, 255, 200)
+            main_color = laser_state.color
+            core_color = (255, 255, 255)  # 核心总是白色
             
             for x1, y1, x2, y2 in segments:
                 # 激光外壳

@@ -980,6 +980,7 @@ class TaskContext:
         max_reflects: int = 3,
         sine_amplitude: float = 50.0,
         sine_wavelength: float = 100.0,
+        color: tuple[int, int, int] = (255, 255, 255),
     ) -> "Actor":
         """
         发射激光。
@@ -997,6 +998,7 @@ class TaskContext:
             max_reflects: 最大反射次数
             sine_amplitude: 正弦波振幅（像素）
             sine_wavelength: 正弦波波长（像素）
+            color: 激光颜色 (R, G, B)
 
         Returns:
             创建的激光 Actor
@@ -1036,6 +1038,7 @@ class TaskContext:
             warmup_frames=warmup_frames,
             warmup_timer=warmup_frames,
             angular_velocity=angular_velocity,
+            color=color,
         ))
 
         # 生命周期（预热 + 激活持续时间）

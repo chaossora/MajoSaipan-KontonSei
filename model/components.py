@@ -516,6 +516,18 @@ class BossAttackAnimation:
     cooldown: float = 0.0         # 冷却计时器（防止连续触发）
 
 
+@dataclass
+class BossAuraState:
+    """
+    Boss雪花（Aura）特效状态。
+    用于让雪花独立于Boss位置显示，并跟随弹幕节奏旋转。
+    """
+    detached: bool = False        # 是否与Boss分离（独立显示）
+    fixed_x: float = 0.0          # 分离后的固定X位置
+    fixed_y: float = 0.0          # 分离后的固定Y位置
+    angle: float = 0.0            # 旋转角度（度）
+
+
 # ====== 子机（Option）组件 ======
 
 @dataclass
@@ -604,6 +616,9 @@ class LaserState:
 
     # 旋转参数
     angular_velocity: float = 0.0   # 角速度（度/帧）
+
+    # 渲染参数
+    color: tuple[int, int, int] = (255, 255, 255)  # 激光颜色 (R, G, B)
 
 
 @dataclass
