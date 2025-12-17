@@ -113,7 +113,11 @@ class GameState:
     render_hints: list[RenderHint] = field(default_factory=list)
     
     # BGM 请求 (由脚本设置，控制器读取)
+    # BGM 请求 (由脚本设置，控制器读取)
     bgm_request: Optional[str] = None
+    # SFX 请求队列 (由系统设置，控制器读取并清空)
+    sfx_requests: List[str] = field(default_factory=list)
+
     player: Optional[Actor] = None
 
     time: float = 0.0  # 已用游戏时间（秒）

@@ -679,12 +679,20 @@ class Assets:
         """Load audio assets (SFX)."""
         sfx_list = [
             ("player_shot", "assets/sfx/player_shot.wav"),
+            ("enemy_damage", "assets/sfx/enemy_damage.wav"),
+            ("pause", "assets/sfx/pause.wav"),
+            ("item_get", "assets/sfx/item_get.wav"),
         ]
         
         for name, path in sfx_list:
             try:
                 sound = pygame.mixer.Sound(path)
-                sound.set_volume(0.2)
+                if name == "player_shot":
+                    sound.set_volume(0.05)
+                elif name == "item_get":
+                    sound.set_volume(0.1)
+                else:
+                    sound.set_volume(0.2)
                 self.sfx[name] = sound
                 print(f"Loaded SFX: {path}")
             except (FileNotFoundError, pygame.error) as e:
@@ -713,3 +721,11 @@ class Assets:
                 print(f"Failed to play music {path}: {e}")
         else:
             print(f"Music track not found: {name}")
+
+    def play_sfx(self, name: str) -> None:
+        """Play sound effect by name."""
+        if name in self.sfx:
+            self.sfx[name].play()
+        else:
+            # Silent fail for missing sfx to avoid spam
+            pass

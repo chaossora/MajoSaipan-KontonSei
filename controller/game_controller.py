@@ -143,7 +143,9 @@ class GameController:
                 self.quit_requested = True  # 标记为窗口关闭请求
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.paused = not self.paused
+                    self.paused = True
+                    pygame.mixer.music.pause()
+                    self.assets.play_sfx("pause")
 
         keys = pygame.key.get_pressed()
         state["left"] = keys[pygame.K_LEFT]
@@ -255,6 +257,7 @@ class GameController:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.paused = False # Resume
+                    pygame.mixer.music.unpause()
                 elif event.key == pygame.K_UP:
                     self.pause_selection = (self.pause_selection - 1) % 3
                 elif event.key == pygame.K_DOWN:
@@ -262,11 +265,14 @@ class GameController:
                 elif event.key in (pygame.K_z, pygame.K_RETURN, pygame.K_SPACE):
                     if self.pause_selection == 0: # Resume
                         self.paused = False
+                        pygame.mixer.music.unpause()
                     elif self.pause_selection == 1: # Return to Title
                         self.running = False # Exit game loop -> returns to MainMenu
+                        pygame.mixer.music.stop()
                     elif self.pause_selection == 2: # Quit Game
                         self.running = False
                         self.quit_requested = True
+                        pygame.mixer.music.stop()
 
     def _update_cutin(self, dt: float) -> None:
         """Update cut-in animation state."""
@@ -351,6 +357,12 @@ class GameController:
                 if self.state.bgm_request:
                     self.assets.play_music(self.state.bgm_request)
                     self.state.bgm_request = None
+                
+                # Check for SFX requests
+                if self.state.sfx_requests:
+                    for sfx_name in self.state.sfx_requests:
+                        self.assets.play_sfx(sfx_name)
+                    self.state.sfx_requests.clear()
                 
                 self.accumulator -= FIXED_DT
                 tick_count += 1
