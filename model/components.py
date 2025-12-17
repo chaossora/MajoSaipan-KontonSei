@@ -86,6 +86,35 @@ class Animation:
     current_frame: int = 0
     loop: bool = False
     auto_remove: bool = True
+    scale_to: Tuple[int, int] | None = None
+    flip_x: bool = False
+
+
+@dataclass
+class DialogueLine:
+    """A single line of dialogue."""
+    speaker: str  # "player" or "boss"
+    name: str     # Display name (e.g. "Ema", "Yuki")
+    text: str
+    variant: str | None = None  # e.g. "2" for ema_2.png
+    layout: str = "default"  # "default" or "center"
+
+
+@dataclass
+class DialogueState:
+    """Global dialogue state (attached to GameState or special entity)."""
+    active: bool = False
+    lines: List[DialogueLine] = field(default_factory=list)
+    current_index: int = 0
+    finished: bool = False
+    
+    # Closing Phase
+    closing: bool = False
+    timer: float = 0.0
+    alpha: int = 255
+    
+    # Persistent State for Portraits
+    variants: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

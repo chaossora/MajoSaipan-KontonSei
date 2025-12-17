@@ -1672,7 +1672,8 @@ def stage1_boss_script(ctx: "TaskContext") -> Generator[int, None, None]:
     )
 
     # Boss 战结束
-    ctx.kill_boss()
+    # ctx.kill_boss() 
+    # (Controlled by Stage Script now for post-battle dialogue)
 
 
 # ============ Boss Factory ============

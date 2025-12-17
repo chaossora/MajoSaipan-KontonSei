@@ -91,8 +91,8 @@ def calculate_symmetric_positions(
         return []
 
     if count == 1:
-        # 1个子机：中央
-        return [(0.0, offset_y)]
+        # 1个子机：头顶 (上方)
+        return [(0.0, offset_y - 30.0)]
 
     if count == 2:
         # 2个子机：左右对称

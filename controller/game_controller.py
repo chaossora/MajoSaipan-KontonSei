@@ -343,6 +343,51 @@ class GameController:
                 self.renderer.render(self.state, flip=True)
                 continue
 
+            # ==========================
+            # Dialogue Logic
+            # ==========================
+            if self.state.dialogue.active:
+                dialogue = self.state.dialogue
+                
+                if dialogue.closing:
+                    # Closing Phase (Just Fade Out)
+                    dialogue.timer -= real_dt
+                    
+                    # Logic: Fade over 1.0 second.
+                    if dialogue.timer > 0:
+                        dialogue.alpha = int(255 * dialogue.timer)
+                    else:
+                        dialogue.alpha = 0
+                        
+                    if dialogue.timer <= 0:
+                        dialogue.active = False
+                        dialogue.finished = True
+                        dialogue.closing = False
+                else:
+                    # Active Reading Phase
+                    # Ensure current line variant is applied
+                    if dialogue.current_index < len(dialogue.lines):
+                        line = dialogue.lines[dialogue.current_index]
+                        if line.variant:
+                            dialogue.variants[line.speaker] = line.variant
+
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            self.running = False
+                            self.quit_requested = True
+                        elif event.type == pygame.KEYDOWN:
+                            if event.key == pygame.K_z or event.key == pygame.K_RETURN:
+                                 # Advance
+                                 dialogue.current_index += 1
+                                 if dialogue.current_index >= len(dialogue.lines):
+                                     dialogue.closing = True
+                                     dialogue.timer = 1.0 # 1s fade out (no wait)
+                                     dialogue.alpha = 255
+                
+                self.accumulator = 0.0
+                self.renderer.render(self.state, flip=True)
+                continue
+
 
             # ==========================
             # 运行逻辑 (Running State)

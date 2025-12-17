@@ -109,11 +109,18 @@ def stage1_script(ctx: "TaskContext") -> Generator[int, None, None]:
     while ctx.enemies_alive() > 0:
         yield 1
     
-    yield 60  # Boss 出场前短暂停顿
+    # Timeline 03: Boss Spawn
+    # ==========================
     
-    yield 60  # Boss 出场前短暂停顿
-    
-    # 生成 Boss（如果已注册）
+    # Dialogue
+    yield from ctx.wait(3.0)
+    yield from run_dialogue(ctx)
+
+    # Boss Cut-in (Disabled)
+    # ctx.state.cutin.start(name="boss_cutin", control_bgm=True)
+    # yield from ctx.wait(2.5)
+
+    # Boss Battle
     try:
         boss = ctx.spawn_boss(
             "stage1_boss",
@@ -121,16 +128,35 @@ def stage1_script(ctx: "TaskContext") -> Generator[int, None, None]:
             y=top_y,
         )
         
-        # 等待 Boss 被击败
-        from model.components import Health
-        while True:
-            health = boss.get(Health)
-            if health is None or health.hp <= 0:
-                break
+        # 等待 Boss 脚本执行完毕 (即所有阶段完成)
+        # 注意: 即使 HP<=0，只要脚本还在运行(如转阶段)，就继续等待
+        from model.scripting.task import TaskRunner
+        runner = boss.get(TaskRunner)
+        while runner and runner.has_active_tasks():
             yield 1
     except ValueError:
         # Boss 尚未注册，跳过 Boss 阶段
         pass
+    
+    # Wait a bit before dialogue
+    yield from ctx.wait(1.0)
+    
+    # Post Battle Dialogue
+    yield from run_post_battle_dialogue(ctx)
+    
+    # Remove boss & Spawn Items
+    if 'boss' in locals() and boss:
+        # Get boss position
+        from model.components import Position
+        pos = boss.get(Position)
+        bx, by = (pos.x, pos.y) if pos else (center_x, top_y)
+        
+        ctx.state.remove_actor(boss)
+        spawn_stage_clear_items(ctx, bx, by)
+        
+        # Explosion SFX
+        ctx.play_sound("explosion")
+
     
     # 关卡完成
     ctx.state.stage.finished = True
@@ -159,3 +185,74 @@ def setup_stage1(state: "GameState") -> None:
     
     # 启动关卡脚本
     stage_runner.start_stage(state, stage1_script, rng_seed=0)
+
+
+def run_dialogue(ctx):
+    """Run the boss pre-fight dialogue."""
+    from model.components import DialogueLine
+    
+    dialogue = ctx.state.dialogue
+    
+    # Setup Lines
+    dialogue.lines = [
+        DialogueLine(speaker="player", name="Ema", text="小雪！！"),
+        DialogueLine(speaker="boss", name="Yuki", text="......"),
+        DialogueLine(speaker="player", name="Ema", text="为什么...", variant="2"),
+        DialogueLine(speaker="boss", name="Yuki", text="那么就...开始吧。", variant="2"),
+    ]
+    dialogue.current_index = 0
+    dialogue.active = True
+    dialogue.finished = False
+    
+       # Wait for dialogue to finish (TaskRunner pauses during dialogue)
+    while ctx.state.dialogue.active or ctx.state.dialogue.closing:
+        yield 1
+
+
+def run_post_battle_dialogue(ctx):
+    """Run the boss post-fight dialogue."""
+    from model.components import DialogueLine
+    
+    dialogue = ctx.state.dialogue
+    
+    # Setup Lines
+    dialogue.lines = [
+        DialogueLine(speaker="boss", name="Yuki", text="......", variant="3", layout="center"),
+        DialogueLine(speaker="boss", name="Yuki", text="谢谢你，艾玛。", variant="4", layout="center"),
+    ]
+    dialogue.current_index = 0
+    dialogue.active = True
+    dialogue.finished = False
+    
+    # Wait for dialogue
+    while ctx.state.dialogue.active or ctx.state.dialogue.closing:
+        yield 1
+
+
+def spawn_stage_clear_items(ctx, x: float, y: float):
+    """Spawn XP items after boss defeat."""
+    from model.actor import Actor
+    from model.components import (
+        Position, Velocity, SpriteInfo, Collider, CollisionLayer, 
+        Item, ItemType, ItemCollectState
+    )
+    from pygame.math import Vector2
+    import random
+    
+    for _ in range(20):
+        item = Actor()
+        item.add(Position(x, y))
+        
+        # Random velocity
+        angle = random.uniform(0, 360)
+        speed = random.uniform(100, 300)
+        vx = speed * random.uniform(-1, 1) # simple scatter
+        vy = speed * random.uniform(-1, 1)
+        
+        item.add(Velocity(Vector2(vx, vy)))
+        item.add(SpriteInfo("item_exp_large"))
+        item.add(Collider(12.0, CollisionLayer.ITEM, CollisionLayer.PLAYER))
+        item.add(Item(ItemType.POINT, 1000)) # Using POINT as generic XP/Score for now
+        item.add(ItemCollectState.NONE)
+        
+        ctx.state.add_actor(item)

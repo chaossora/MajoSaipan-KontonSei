@@ -99,7 +99,16 @@ class TaskContext:
             a: 下界（包含）
             b: 上界（不包含）
         """
-        return a + self.rng.random() * (b - a)
+        return self.rng.uniform(a, b)
+
+    def wait(self, duration: float) -> Generator[int, None, None]:
+        """
+        Wait for a duration (in seconds).
+        Helper generator for use in scripts: yield from ctx.wait(2.0)
+        """
+        frames = int(duration * 60)
+        for _ in range(frames):
+            yield
     
     def fire(
         self,

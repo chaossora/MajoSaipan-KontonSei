@@ -9,7 +9,15 @@ def boss_only_script(ctx) -> Generator[int, None, None]:
     center_x = width / 2
     top_y = 120
     
-    yield 60  # 短暂等待进场
+    # yield 60  # Short wait
+    yield from ctx.wait(3.0)
+    
+    # Run Dialogue
+    yield from model.stages.stage1.run_dialogue(ctx)
+    
+    # Cut-in (Removed per request)
+    # ctx.state.cutin.start(name="boss_cutin", control_bgm=True)
+    # yield from ctx.wait(2.0)
     
     try:
         # 直接生成 Boss (Stage 1 Boss)
@@ -19,17 +27,31 @@ def boss_only_script(ctx) -> Generator[int, None, None]:
             y=top_y,
         )
         
-        # 循环直到 Boss 死亡
-        from model.components import Health
-        while True:
-            health = boss.get(Health)
-            if health is None or health.hp <= 0:
-                break
+        # 循环直到 Boss 脚本结束
+        from model.scripting.task import TaskRunner
+        runner = boss.get(TaskRunner)
+        while runner and runner.has_active_tasks():
             yield 1
             
     except ValueError as e:
         print(f"Boss 生成失败: {e}")
         
+    # Wait a bit
+    yield from ctx.wait(1.0)
+    
+    # Run Post-Battle Dialogue
+    yield from model.stages.stage1.run_post_battle_dialogue(ctx)
+    
+    # Remove boss & Spawn Items
+    if 'boss' in locals() and boss:
+        from model.components import Position
+        pos = boss.get(Position)
+        bx, by = (pos.x, pos.y) if pos else (center_x, top_y)
+        
+        ctx.state.remove_actor(boss)
+        model.stages.stage1.spawn_stage_clear_items(ctx, bx, by)
+        ctx.play_sound("explosion")
+
     print(">>> Boss 战结束 <<<")
     ctx.state.stage.finished = True
 

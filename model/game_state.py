@@ -50,6 +50,7 @@ from .components import (
     OptionConfig,
     OptionState,
     PlayerShotPattern,
+    DialogueState,
 )
 from .game_config import (
     CollectConfig,
@@ -112,6 +113,9 @@ class GameState:
     # 渲染提示
     render_hints: list[RenderHint] = field(default_factory=list)
     
+    # Dialogue State
+    dialogue: DialogueState = field(default_factory=DialogueState)
+
     # BGM 请求 (由脚本设置，控制器读取)
     # BGM 请求 (由脚本设置，控制器读取)
     bgm_request: Optional[str] = None

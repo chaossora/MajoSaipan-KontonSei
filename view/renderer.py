@@ -201,6 +201,10 @@ class Renderer:
         if state.cutin.active:
             self._render_cutin(state)
 
+        # Dialogue Overlay
+        if state.dialogue.active:
+            self._render_dialogue(state)
+
         if flip:
             pygame.display.flip()
 
@@ -980,3 +984,154 @@ class Renderer:
 
         if has_wave:
              self.screen.blit(self.vfx_surface, (0, 0))
+
+    def _render_dialogue(self, state: GameState) -> None:
+        """Render dialogue overlay (portraits and text box)."""
+        dialogue = state.dialogue
+        if not dialogue.lines or dialogue.current_index >= len(dialogue.lines):
+            return
+            
+        line = dialogue.lines[dialogue.current_index]
+        GAME_WIDTH = 480
+        GAME_HEIGHT = 640
+        
+        # 1. Overlay (Dim Background)
+        # Assuming we want to dim the game behind
+        # overlay = pygame.Surface((GAME_WIDTH, GAME_HEIGHT), pygame.SRCALPHA)
+        # overlay.fill((0, 0, 0, 100))
+        # self.screen.blit(overlay, (0, 0))
+        
+        # Global Alpha for Fade Out
+        global_alpha = dialogue.alpha if dialogue.closing else 255
+        
+        # Helper to blit with alpha
+        def blit_alpha(source, dest, position, alpha=255):
+             if alpha == 255:
+                 dest.blit(source, position)
+                 return
+             
+             # Apply alpha
+             # For per-pixel alpha surfaces (like PNGs), set_alpha works multiplicatively in SDL2/Pygame2
+             # But let's be safe.
+             temp = source.copy()
+             temp.set_alpha(alpha)
+             dest.blit(temp, position)
+
+        # 2. Portraits
+        
+        if line.layout == "center":
+            # Center Mode (Only active speaker shown in center)
+            speaker = line.speaker
+            variant = dialogue.variants.get(speaker)
+            base_key = "portrait_player" if speaker == "player" else "portrait_boss"
+            key = base_key
+            
+            if variant:
+                var_key = f"{base_key}_{variant}"
+                if self.assets.images.get(var_key):
+                    key = var_key
+            
+            img = self.assets.images.get(key)
+            if img:
+                x = (GAME_WIDTH - img.get_width()) // 2
+                y = 200
+                blit_alpha(img, self.screen, (x, y), global_alpha)
+                
+        else:
+            # Default Mode (Side by Side)
+            # Left: Player (Ema)
+            # Check persistent variant state
+            p_variant = dialogue.variants.get("player")
+            p_key = "portrait_player"
+            if p_variant:
+                 var_key = f"portrait_player_{p_variant}"
+                 if self.assets.images.get(var_key):
+                     p_key = var_key
+            
+            p_img = self.assets.images.get(p_key)
+            if p_img:
+                is_player_speaking = (line.speaker == "player")
+                x = 40 
+                y = 200
+                
+                img_to_draw = p_img
+                if not is_player_speaking:
+                    img_to_draw = p_img.copy()
+                    img_to_draw.fill((100, 100, 100), special_flags=pygame.BLEND_RGB_MULT)
+                
+                blit_alpha(img_to_draw, self.screen, (x, y), global_alpha)
+
+            # Right: Boss (Yuki)
+            b_variant = dialogue.variants.get("boss")
+            b_key = "portrait_boss"
+            if b_variant:
+                 var_key = f"portrait_boss_{b_variant}"
+                 if self.assets.images.get(var_key):
+                     b_key = var_key
+
+            b_img = self.assets.images.get(b_key)
+            if b_img:
+                is_boss_speaking = (line.speaker == "boss")
+                w = b_img.get_width()
+                x = GAME_WIDTH - w - 10
+                y = 200
+                
+                img_to_draw = b_img
+                if not is_boss_speaking:
+                    img_to_draw = b_img.copy()
+                    img_to_draw.fill((100, 100, 100), special_flags=pygame.BLEND_RGB_MULT)
+                
+                blit_alpha(img_to_draw, self.screen, (x, y), global_alpha)
+        
+        # 3. Text Box
+        box_h = 150
+        box_y = GAME_HEIGHT - box_h - 20
+        box_rect = pygame.Rect(20, box_y, GAME_WIDTH - 40, box_h)
+        
+        # Draw Box Background
+        s = pygame.Surface((box_rect.width, box_rect.height), pygame.SRCALPHA)
+        s.fill((0, 0, 40, 200)) # Dark Blue
+        pygame.draw.rect(s, (255, 255, 255), s.get_rect(), 2) # White Border
+        # Apply global alpha to box
+        # Box has 200 alpha. global_alpha 128 -> 100.
+        # set_alpha typically overrides per-pixel alpha for blit? 
+        # No, set_alpha(A) on per-pixel surface makes pixels (r,g,b, a*A/255).
+        blit_alpha(s, self.screen, box_rect.topleft, global_alpha)
+        
+        # 4. Text
+        font = self.assets.get_font(20)
+        name_font = self.assets.get_font(28)
+        
+        # Try finding Name Image
+        name_img_key = "name_ema" if line.speaker == "player" else "name_yuki"
+        name_img = self.assets.images.get(name_img_key)
+        
+        if name_img:
+            # Conditional offset for Yuki
+            offset_x = 0
+            if line.speaker == "boss":
+                offset_x = -5
+            
+            blit_alpha(name_img, self.screen, (box_rect.x + offset_x, box_rect.y - 25), global_alpha)
+        else:
+            name_color = (100, 200, 255) if line.speaker == "player" else (255, 100, 100)
+            name_surf = name_font.render(line.name, True, name_color)
+            blit_alpha(name_surf, self.screen, (box_rect.x + 20, box_rect.y + 10), global_alpha)
+        
+        # Content
+        text_color = (255, 255, 255)
+        words = line.text.split('\n')
+        line_spacing = 30
+        
+        text_start_y = box_rect.y + 60 
+        curr_y = text_start_y
+        
+        for w in words:
+            t_surf = font.render(w, True, text_color)
+            blit_alpha(t_surf, self.screen, (box_rect.x + 30, curr_y), global_alpha)
+            curr_y += line_spacing
+            
+        # "Press Z" indicator (Only if not closing)
+        if not dialogue.closing and pygame.time.get_ticks() % 1000 < 500:
+            hint = font.render("▼", True, (255, 255, 0))
+            self.screen.blit(hint, (box_rect.right - 40, box_rect.bottom - 30))
