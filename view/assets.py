@@ -16,6 +16,7 @@ class Assets:
         self.player_frames: dict[str, list[pygame.Surface]] = {}
         self.enemy_sprites: dict[str, dict[str, list[pygame.Surface]]] = {}
         self.vfx: dict[str, list[pygame.Surface]] = {}
+        self.sfx: dict[str, pygame.mixer.Sound] = {}
         self.font_path = "assets/fonts/OPPOSans-Bold.ttf"
 
     def load(self) -> None:
@@ -451,6 +452,7 @@ class Assets:
         self._load_items()
         self._load_bullets()
         self._load_vfx()
+        self._load_audio()
 
     def get_image(self, name: str) -> pygame.Surface:
         """
@@ -609,6 +611,26 @@ class Assets:
         except (FileNotFoundError, pygame.error) as e:
            print(f"Failed to load VFX {path}: {e}")
 
+        # Boss Cut-in
+        try:
+            # Try PNG first
+            cutin_path = "assets/ui/boss_cutin.png"
+            try:
+                cutin_img = pygame.image.load(cutin_path).convert_alpha()
+            except (FileNotFoundError, pygame.error):
+                # Fallback to JPG
+                cutin_path = "assets/ui/boss_cutin.jpg"
+                cutin_img = pygame.image.load(cutin_path).convert_alpha()
+            
+            self.images["boss_cutin"] = cutin_img
+            print(f"Loaded Boss Cut-in: {cutin_path}")
+        except (FileNotFoundError, pygame.error):
+            print("Warning: boss_cutin.png/jpg not found. Using placeholder.")
+            s = pygame.Surface((480, 200), pygame.SRCALPHA)
+            s.fill((255, 0, 0, 128))
+            pygame.draw.rect(s, (255, 255, 255), (0, 0, 480, 200), 5)
+            self.images["boss_cutin"] = s
+
     def _load_items(self) -> None:
         """Load item sprites."""
         # Item definitions: (name, filename, target_size)
@@ -652,3 +674,42 @@ class Assets:
                 color = (0, 0, 255) if "blue" in name else (255, 0, 0)
                 pygame.draw.circle(surf, color, (size[0]//2, size[1]//2), size[0]//2 - 2)
                 self.images[name] = surf
+
+    def _load_audio(self) -> None:
+        """Load audio assets (SFX)."""
+        sfx_list = [
+            ("player_shot", "assets/sfx/player_shot.wav"),
+        ]
+        
+        for name, path in sfx_list:
+            try:
+                sound = pygame.mixer.Sound(path)
+                sound.set_volume(0.2)
+                self.sfx[name] = sound
+                print(f"Loaded SFX: {path}")
+            except (FileNotFoundError, pygame.error) as e:
+                print(f"Failed to load SFX {path}: {e}")
+
+    def play_music(self, name: str) -> None:
+        """Play background music by name."""
+        music_paths = {
+            "stage1": "assets/bgm/stage1_theme.flac",
+            "boss": "assets/bgm/boss_theme.flac",
+        }
+        
+        if name == "stop":
+            pygame.mixer.music.stop()
+            print("Music stopped")
+            return
+        
+        if name in music_paths:
+            path = music_paths[name]
+            try:
+                pygame.mixer.music.load(path)
+                pygame.mixer.music.set_volume(0.2) # Background music volume
+                pygame.mixer.music.play(-1) # Loop indefinitely
+                print(f"Playing music: {path}")
+            except pygame.error as e:
+                print(f"Failed to play music {path}: {e}")
+        else:
+            print(f"Music track not found: {name}")

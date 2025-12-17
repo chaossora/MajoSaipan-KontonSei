@@ -21,11 +21,11 @@ from ..player_shot_patterns import PlayerShotPatternConfig, execute_player_shot
 from ..option_shot_handlers import execute_option_shot
 
 
-def player_shoot_system(state: GameState, dt: float) -> None:
-    """玩家射击系统：使用 PlayerShotPattern 组件"""
+def player_shoot_system(state: GameState, dt: float) -> bool:
+    """玩家射击系统：使用 PlayerShotPattern 组件。返回是否进行了射击。"""
     player = state.get_player()
     if not player:
-        return
+        return False
 
     pos = player.get(Position)
     focus_state = player.get(FocusState)
@@ -35,12 +35,12 @@ def player_shoot_system(state: GameState, dt: float) -> None:
     shot_pattern = player.get(PlayerShotPattern)
 
     if not (pos and focus_state and inp and shot_pattern):
-        return
+        return False
 
     is_enhanced = graze_energy is not None and graze_energy.is_enhanced
     is_focusing = focus_state.is_focusing
 
-    _fire_with_pattern(state, player, pos, shot_pattern, shot_origin, is_focusing, is_enhanced, inp, dt)
+    return _fire_with_pattern(state, player, pos, shot_pattern, shot_origin, is_focusing, is_enhanced, inp, dt)
 
 
 def _fire_with_pattern(
@@ -53,13 +53,13 @@ def _fire_with_pattern(
     is_enhanced: bool,
     inp: InputState,
     dt: float,
-) -> None:
+) -> bool:
     """使用新版 PlayerShotPattern 射击"""
     config: PlayerShotPatternConfig = shot_pattern.pattern
 
     shot_pattern.timer = max(0.0, shot_pattern.timer - dt)
     if not inp.shoot or shot_pattern.timer > 0.0:
-        return
+        return False
 
     offset = shot_origin.bullet_spawn_offset_y if shot_origin else 16.0
     spawn_x = pos.x
@@ -95,6 +95,8 @@ def _fire_with_pattern(
 
     # 处理子机射击
     _fire_options_new(state, player, config, pos, is_focusing, is_enhanced)
+    
+    return True
 
 
 def _fire_options_new(

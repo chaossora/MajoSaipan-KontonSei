@@ -411,6 +411,9 @@ class BossState:
     bomb_damage_cap: int = 1              # 每帧最大 Bomb 伤害
     bomb_spell_immune: bool = False        # 符卡期间是否完全免疫 Bomb
 
+    # Cut-in Configuration
+    cutin_image: Optional[str] = "boss_cutin" # Cut-in image resource name
+
 
 @dataclass
 class SpellCardState:

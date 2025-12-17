@@ -107,6 +107,9 @@ class GameController:
 
         # 初始化第一关时间线
         setup_stage1(self.state)
+        
+        # 播放背景音乐
+        self.assets.play_music("stage1")
 
         # 生成测试用掉落物
         spawn_item(
@@ -188,7 +191,9 @@ class GameController:
         # 1. 玩家移动、子机、射击、敌人射击
         player_move_system(self.state, dt)
         option_system(self.state, dt)  # 子机位置更新：在移动后、射击前
-        player_shoot_system(self.state, dt)
+        if player_shoot_system(self.state, dt):
+            if "player_shot" in self.assets.sfx:
+                self.assets.sfx["player_shot"].play()
 
         # PoC 系统：更新点收集线激活标记
         poc_system(self.state)
@@ -263,6 +268,42 @@ class GameController:
                         self.running = False
                         self.quit_requested = True
 
+    def _update_cutin(self, dt: float) -> None:
+        """Update cut-in animation state."""
+        cutin = self.state.cutin
+        
+        # Duration match renderer
+        DURATION_ENTER = 0.8
+        DURATION_HOLD = 1.0
+        # DURATION_EXIT = 0.5 # Used implicitly
+        
+        # 1. First Frame Logic (Stop Music)
+        if cutin.stage == 0 and cutin.timer == 0.0:
+            if cutin.control_bgm:
+                self.assets.play_music("stop")
+            
+        cutin.timer += dt
+        
+        if cutin.stage == 0: # Enter
+            if cutin.timer >= DURATION_ENTER:
+                cutin.stage = 1
+                cutin.timer = 0.0
+                
+        elif cutin.stage == 1: # Hold
+            if cutin.timer >= DURATION_HOLD:
+                cutin.stage = 2
+                cutin.timer = 0.0
+                
+        elif cutin.stage == 2: # Exit
+            # DURATION_EXIT = 0.5
+            if cutin.timer >= 0.5:
+                cutin.active = False
+                # Cut-in finished
+                # Start Boss Music after fade out
+                if cutin.control_bgm:
+                    self.assets.play_music("boss")
+
+
     def run(self) -> None:
         """主循环：使用 accumulator 模式实现固定时间步。"""
         while self.running:
@@ -284,6 +325,16 @@ class GameController:
                 continue
 
             # ==========================
+            # Boss Cut-in Logic
+            # ==========================
+            if self.state.cutin.active:
+                self._update_cutin(real_dt)
+                self.accumulator = 0.0 # Don't accumulate game logic time
+                self.renderer.render(self.state, flip=True)
+                continue
+
+
+            # ==========================
             # 运行逻辑 (Running State)
             # ==========================
             
@@ -295,6 +346,12 @@ class GameController:
             tick_count = 0
             while self.accumulator >= FIXED_DT and tick_count < MAX_TICKS_PER_RENDER:
                 self._logic_tick(FIXED_DT)
+                
+                # Check for BGM request
+                if self.state.bgm_request:
+                    self.assets.play_music(self.state.bgm_request)
+                    self.state.bgm_request = None
+                
                 self.accumulator -= FIXED_DT
                 tick_count += 1
 

@@ -1517,6 +1517,10 @@ def stage1_boss_script(ctx: "TaskContext") -> Generator[int, None, None]:
     - 结束处理
     """
     # 入场：移动到战斗位置
+    # 入场：移动到战斗位置
+    # 播放 Boss 音乐
+    ctx.set_bgm("boss")
+    
     ctx.update_boss_hud(phases_remaining=5, timer=30.0)
     yield from ctx.move_to(ctx.state.width / 2, 120, frames=180)
 

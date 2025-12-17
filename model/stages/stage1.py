@@ -111,6 +111,8 @@ def stage1_script(ctx: "TaskContext") -> Generator[int, None, None]:
     
     yield 60  # Boss 出场前短暂停顿
     
+    yield 60  # Boss 出场前短暂停顿
+    
     # 生成 Boss（如果已注册）
     try:
         boss = ctx.spawn_boss(

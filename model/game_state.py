@@ -82,6 +82,24 @@ class EntityStats:
 
 
 @dataclass
+class CutinState:
+    """Boss 立绘切入动画状态"""
+    active: bool = False
+    timer: float = 0.0
+    stage: int = 0  # 0: ENTER (Flash in), 1: HOLD, 2: EXIT (Fade out)
+    portrait_name: str = "boss_cutin" 
+    control_bgm: bool = True # Whether to stop/resume music
+
+    def start(self, name: str = "boss_cutin", control_bgm: bool = True) -> None:
+        self.active = True
+        self.timer = 0.0
+        self.stage = 0
+        self.portrait_name = name
+        self.control_bgm = control_bgm
+
+
+
+@dataclass
 class GameState:
     """
     纯逻辑世界：
@@ -91,6 +109,11 @@ class GameState:
     """
 
     actors: List[Actor] = field(default_factory=list)
+    # 渲染提示
+    render_hints: list[RenderHint] = field(default_factory=list)
+    
+    # BGM 请求 (由脚本设置，控制器读取)
+    bgm_request: Optional[str] = None
     player: Optional[Actor] = None
 
     time: float = 0.0  # 已用游戏时间（秒）
@@ -118,6 +141,10 @@ class GameState:
 
     # 游戏结束标志（玩家残机 <= 0）
     game_over: bool = False
+
+    # Boss Cut-in 状态
+    cutin: CutinState = field(default_factory=CutinState)
+
 
     def __post_init__(self) -> None:
         # 初始化缺少的默认资源
