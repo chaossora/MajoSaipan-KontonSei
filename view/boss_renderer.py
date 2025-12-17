@@ -1,6 +1,6 @@
 import pygame
 from model.game_state import GameState
-from model.components import Velocity, SpriteInfo, Position, BossAttackAnimation
+from model.components import Velocity, SpriteInfo, Position, BossAttackAnimation, BossAuraState
 
 class BossRenderer:
     def __init__(self, screen: pygame.Surface, assets):
@@ -191,9 +191,31 @@ class BossRenderer:
                 anim["aura_timer"] = 0.0
                 anim["aura_frame_idx"] = anim.get("aura_frame_idx", 0) + 1
 
-            # 更新旋转角度 (Snowflake Rotation)
-            # 每帧增加 2 度 (可调整速度)
-            anim["aura_angle"] = (anim.get("aura_angle", 0.0) + 2.0) % 360
+            # 检查是否有BossAuraState组件（用于独立雪花渲染）
+            aura_state = actor.get(BossAuraState)
+            
+            if aura_state and aura_state.detached:
+                # 雪花与Boss分离，使用固定位置
+                aura_x = aura_state.fixed_x
+                aura_y = aura_state.fixed_y
+                
+                # 平滑插值旋转角度，避免卡顿
+                target_angle = aura_state.angle
+                current_aura_angle = anim.get("smooth_aura_angle", target_angle)
+                
+                # 计算角度差（处理跨越360度的情况）
+                angle_diff = target_angle - current_aura_angle
+                # 平滑插值（每帧移动向目标角度20%）
+                current_aura_angle += angle_diff * 0.2
+                anim["smooth_aura_angle"] = current_aura_angle
+                aura_angle = current_aura_angle
+            else:
+                # 正常模式：雪花跟随Boss位置
+                aura_x = pos.x
+                aura_y = pos.y
+                # 每帧增加 2 度 (可调整速度)
+                anim["aura_angle"] = (anim.get("aura_angle", 0.0) + 2.0) % 360
+                aura_angle = anim["aura_angle"]
 
             aura_frames = self.assets.vfx["boss_aura"]
             if aura_frames:
@@ -201,8 +223,8 @@ class BossRenderer:
                 aura_img = aura_frames[idx]
                 if aura_img:
                      # 旋转 (会自动调整 Surface 大小，需重新定位中心)
-                     rotated_aura = pygame.transform.rotate(aura_img, anim["aura_angle"])
-                     rect = rotated_aura.get_rect(center=(int(pos.x), int(pos.y)))
+                     rotated_aura = pygame.transform.rotate(aura_img, aura_angle)
+                     rect = rotated_aura.get_rect(center=(int(aura_x), int(aura_y)))
                      self.screen.blit(rotated_aura, rect)
 
         # 4.6 检查并渲染攻击动画（优先于移动动画）
