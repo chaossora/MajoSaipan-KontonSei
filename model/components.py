@@ -65,6 +65,18 @@ class VfxTag:
 
 
 @dataclass
+class Shockwave:
+    """全屏冲击波特效组件（纯代码渲染）。"""
+    max_radius: float
+    speed: float
+    color: tuple[int, int, int]
+    width: int
+    radius: float = 0.0
+    alpha: float = 255.0  # Float for smoother fade
+    fade_speed: float = 0.0 # Alpha per second decrease
+
+
+@dataclass
 class Animation:
     """Simple animation component."""
     base_name: str

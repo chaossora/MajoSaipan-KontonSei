@@ -13,6 +13,7 @@ from model.components import (
     EnemyBulletKindTag, EnemyBulletKind,
     LaserTag, LaserState, LaserType,
     PlayerDamageState,
+    Shockwave,
 )
 from model.game_config import CollectConfig
 
@@ -177,6 +178,9 @@ class Renderer:
             
         for actor in layer_boss:
             self._draw_actor(actor, state)
+
+        # Draw Shockwaves (Overlay on top of normal game elements)
+        self._draw_shockwaves(state)
 
         # 绘制子机（在玩家精灵之上）
         self._render_options(state)
@@ -925,3 +929,54 @@ class Renderer:
                 prev_x, prev_y = curr_x, curr_y
 
         return segments
+
+    def _draw_shockwaves(self, state: GameState) -> None:
+        """绘制冲击波 VFX (Shockwave)。"""
+        # Create a surface for alpha blending if not exists
+        GAME_WIDTH = 480
+        SCREEN_HEIGHT = state.height
+        
+        if not hasattr(self, 'vfx_surface') or self.vfx_surface.get_size() != (GAME_WIDTH, SCREEN_HEIGHT):
+            self.vfx_surface = pygame.Surface((GAME_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        
+        # Clear Vfx Surface
+        self.vfx_surface.fill((0, 0, 0, 0))
+        
+        has_wave = False
+        for actor in state.actors:
+            wave = actor.get(Shockwave)
+            if not wave:
+                continue
+            
+            has_wave = True
+            pos = actor.get(Position)
+            if not pos: continue
+            
+            # Draw Circle
+            # Color with Alpha
+            color = wave.color
+            alpha = int(wave.alpha)
+            if alpha <= 0: continue
+            
+            rgba = (*color, alpha)
+            
+            try:
+                pygame.draw.circle(
+                    self.vfx_surface,
+                    rgba,
+                    (int(pos.x), int(pos.y)),
+                    int(wave.radius),
+                    wave.width
+                )
+            except (TypeError, ValueError):
+                 # Fallback for old pygame
+                 # Manually Draw on temp circle? Too slow?
+                 # If color is just RGB, circle is opaque on transparent surface.
+                 # Alpha comes from surface alpha if per-pixel alpha is set.
+                 # Wait, drawing opaque circle on SRALPHA surface = opaque circle.
+                 # If we want transparent circle, we must draw with RGBA color.
+                 # Modern pygame supports this.
+                 pass
+
+        if has_wave:
+             self.screen.blit(self.vfx_surface, (0, 0))

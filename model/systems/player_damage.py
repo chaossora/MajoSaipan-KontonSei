@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..game_state import GameState
-from ..components import PlayerLife, PlayerBomb, PlayerDamageState, InputState
+from ..components import PlayerLife, PlayerBomb, PlayerDamageState, InputState, Position
 from .death_effect import apply_death_effect
 
 
@@ -58,6 +58,25 @@ def player_damage_system(
         
         # 播放死亡音效
         state.sfx_requests.append("player_death")
+        
+        # Spawn Death Shockwave (Pink)
+        pos = player.get(Position)
+        if pos:
+            from ..actor import Actor
+            from ..components import Shockwave, Position as PosComp # Alias to avoid confusion
+            
+            wave = Actor()
+            wave.add(PosComp(pos.x, pos.y))
+            wave.add(Shockwave(
+                max_radius=1000.0,
+                speed=1500.0,
+                color=(255, 100, 150), # Redder Pink
+                width=80,
+                radius=10.0,
+                alpha=255.0,
+                fade_speed=600.0
+            ))
+            state.add_actor(wave)
 
         if life.lives > 0:
             # 掉命后进入无敌状态

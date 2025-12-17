@@ -7,7 +7,7 @@ from .registry import Registry
 from .components import (
     BombConfigData, Position, BombFieldTag, Collider, Lifetime, SpriteInfo, CollisionLayer,
     EnemyBulletTag, PlayerBulletTag, PlayerBulletKind, PlayerBulletKindTag, Bullet, Velocity,
-    HomingBullet, BulletGrazeState,
+    HomingBullet, BulletGrazeState, Shockwave,
 )
 from .actor import Actor
 from .scripting.task import TaskRunner
@@ -136,6 +136,21 @@ def _convert_bomb_script(
     bomb = player.get(PlayerBomb)
     if bomb:
         bomb.active = False
+
+    # Spawn Pink Shockwave
+    from .actor import Actor
+    wave = Actor()
+    wave.add(Position(player.get(Position).x, player.get(Position).y))
+    wave.add(Shockwave(
+        max_radius=800.0,
+        speed=1200.0,
+        color=(255, 192, 203), # Pink
+        width=50,
+        radius=10.0,
+        alpha=200.0,
+        fade_speed=400.0
+    ))
+    ctx.state.add_actor(wave)
 
 
 def convert_enemy_bullets(
