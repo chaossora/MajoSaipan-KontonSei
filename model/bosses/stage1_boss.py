@@ -1797,7 +1797,7 @@ def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
     
     # Boss state（简化版，无阶段列表）
     boss.add(BossState(
-        boss_name="小妖精头目",
+        boss_name="月代雪",
         drop_power=16,
         drop_point=24,
     ))
@@ -1807,7 +1807,7 @@ def spawn_stage1_boss(state: "GameState", x: float, y: float) -> Actor:
     
     # HUD data
     boss.add(BossHudData(
-        boss_name="小妖精头目",
+        boss_name="月代雪",
         phases_remaining=5,
         visible=True,
     ))

@@ -431,9 +431,9 @@ class Renderer:
         y = 30
         line_h = 32
         
-        def draw_text_outline(text, color, cur_y):
+        def draw_text_outline(text, color, cur_y, outline_color=(0, 0, 0)):
             """绘制带描边的文字"""
-            outline_color = (0, 0, 0)
+            # outline_color = (0, 0, 0)
             # 简单描边：8方向
             offsets = [(-1, -1), (1, -1), (-1, 1), (1, 1), (0, -1), (0, 1), (-1, 0), (1, 0)]
             for ox, oy in offsets:
@@ -507,7 +507,8 @@ class Renderer:
             title_x = state.width + (sidebar_w - boss_title.get_width()) // 2
             self.screen.blit(boss_title, (title_x, y))
             y += boss_title.get_height() + 10
-            draw_text_outline(boss_hud.boss_name, (255, 200, 200), y)
+            # White text with Blue outline for "月代雪"
+            draw_text_outline(boss_hud.boss_name, (255, 255, 255), y, outline_color=(50, 100, 255))
             
             # 符卡名
             if boss_hud.is_spell_card and boss_hud.spell_name:
@@ -572,7 +573,11 @@ class Renderer:
 
     def _draw_graze_field(self, pos: Position, radius: float) -> None:
         """绘制擦弹半径覆盖层。"""
-        int_radius = int(radius)
+        # Visual adjustment: ensure it covers the character (Pink circle)
+        # Force a minimum size for the visual effect
+        visual_radius = max(radius, 42.0)
+        
+        int_radius = int(visual_radius)
         if int_radius <= 0:
             return
 
@@ -582,7 +587,7 @@ class Renderer:
 
         pygame.draw.circle(
             overlay,
-            (80, 200, 255, 90),
+            (255, 100, 200, 100), # Pink color
             center,
             int_radius,
             width=2,
