@@ -8,11 +8,10 @@
 - 可选角色系统（樱羽艾玛 / 二阶堂希罗）
 - Task 协程脚本系统（LuaSTG 风格 `yield N` 语义）
 - 丰富的弹幕模式（自机狙、N-WAY、环形、螺旋等）
-- 激光系统（直线、正弦波、反射）
 - 子机系统（动态位置、多种射击模式）
 - Boss 战系统（多阶段、符卡、奖励机制）
 - 东方风格的游戏机制（擦弹、擦弹能量/增强状态、PoC、死亡炸弹）
-- 使用注册表模式实现高度可扩展性（12 个注册表）
+- 使用注册表模式实现高度可扩展性
 
 ## 运行
 
@@ -699,7 +698,6 @@ def stage_script(ctx: TaskContext) -> Generator[int, None, None]:
 - **关闭敌人生成**：修改 `stages/stage1.py` 中的事件表
 - **验证碰撞**：`game_controller.py` 初始化时会掉落测试道具
 - **实体统计**：HUD 底部显示各类实体数量
-- **Boss 快速测试**：修改 `stage1.py` 中 Boss 出场时间
 
 ## 数据流示意图
 
@@ -732,6 +730,3 @@ renderer → 根据 Position/SpriteInfo/HudData 绘制
 - Python 3.10+
 - pygame
 
-## License
-
-MIT
